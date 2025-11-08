@@ -1,0 +1,66 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+function SaveSceneAutoNameSU(){
+
+    init_script_utils();
+
+
+    var sPaddedIncrement = "";
+    if (App.scriptArgs.length > 1) {
+		// First arg, if present, specifies the actual scene number instead of
+		// inferring it from the current scene name
+		sPaddedIncrement = App.scriptArgs[0];
+	
+    } else {
+	
+		var sCurrentFileName = Scene.getFilename().split(".")[0];
+		App.verbose("Current file is [" + sCurrentFileName + "]");
+		
+		test_pattern = RegExp("[0-9]+$");
+
+		mark = sCurrentFileName.match(test_pattern);
+
+		test = Number(mark);
+		test = test + 1;
+		sPaddedIncrement = getZeroPaddedNumber(test, 3);
+
+    }
+	
+    newFileNameRoot = sCurrentFileName.replace(test_pattern, sPaddedIncrement)
+
+    newFileName =  newFileNameRoot +  ".duf";
+
+    App.verbose ("New filename = " + newFileName);
+
+    oError = Scene.saveScene(newFileName);
+
+	if (oError.valueOf() == 0) {
+        log_success_event ('Saved scene file ' + newFileName);
+    } else {
+        log_failure_event ('Failed to save scene file ' + newFileName + ": " + getErrorMessage(oError));
+    } 
+
+	close_script_utils();
+
+};
+
+SaveSceneAutoNameSU();

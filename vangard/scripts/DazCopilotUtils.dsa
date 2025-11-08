@@ -1,0 +1,1644 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
+/**
+ * Represents the log file object. Initialized by `init_log`.
+ * @type {DzFile | null}
+ */
+var log_file;
+
+// Initialize 'static' variables that hold modifier key state
+/**
+ * Flag indicating if the Shift key is currently pressed.
+ * Updated by `updateModifierKeyState`.
+ * @type {boolean}
+ */
+var s_bShiftPressed = false;
+/**
+ * Flag indicating if the Control key is currently pressed.
+ * Updated by `updateModifierKeyState`.
+ * @type {boolean}
+ */
+var s_bControlPressed = false;
+/**
+ * Flag indicating if the Alt key is currently pressed.
+ * `debug()` function output is conditional on this flag.
+ * Updated by `updateModifierKeyState`.
+ * @type {boolean}
+ */
+var s_bAltPressed = false;
+/**
+ * Flag indicating if the Meta key (e.g., Command key on macOS, Windows key on Windows) is currently pressed.
+ * Updated by `updateModifierKeyState`.
+ * @type {boolean}
+ */
+var s_bMetaPressed = false;
+/**
+ * Default source name for log entries. Can be overridden by `init_script_utils`.
+ * @type {string}
+ */
+var s_logSourceName = "_DEFAULT_";
+
+
+X_AXIS = 0x00000001;
+Y_AXIS = 0x00000002;
+Z_AXIS = 0x00000003;
+
+/**
+ * Retrieves the default log source name.
+ * @returns {string} The current default log source name.
+ */
+function getDefaultLogSourceName() {
+    return s_logSourceName;
+}
+
+/**
+ * Prints messages to the DAZ Studio script output console if the Alt key (`s_bAltPressed`) is pressed.
+ * This function is intended for debugging purposes.
+ * @param {...any} arguments - One or more arguments to be printed. They will be joined by spaces.
+ * @returns {void}
+ */
+function debug()
+{
+    // If we are not debugging (Alt key not pressed)
+    if( !s_bAltPressed ){
+        // We are done...
+        return;
+    }
+
+    // Convert the arguments object into an array
+    var aArguments = [].slice.call( arguments );
+
+    // Print the array (DAZ Studio's print function)
+    print( aArguments.join(" ") );
+};
+
+/**
+ * Retrieves a translated string if localization is available (via `qsTr`),
+ * otherwise returns the original string.
+ * @param {string} sText - The text string to translate.
+ * @returns {string} The translated string or the original string if no translation is found or `qsTr` is undefined.
+ */
+function text( sText )
+{
+    // If the version of the application supports qsTr()
+    if( typeof( qsTr ) != "undefined" ){
+        // Return the translated (if any) text
+        return qsTr( sText );
+    }
+
+    // Return the original text
+    return sText;
+};
+
+
+/**
+ * Sets default options within a DAZ Studio settings object.
+ * Specifically, it sets "CompressOutput" to `false`.
+ * @param {DzSettings} oSettings - The DAZ Studio settings object to modify.
+ * @returns {void}
+ */
+function setDefaultOptions( oSettings )
+{
+    // Set the initial state of the compress file checkbox
+    oSettings.setBoolValue( "CompressOutput", false );
+};
+
+/**
+ * Updates the global modifier key state variables (`s_bShiftPressed`, `s_bControlPressed`,
+ * `s_bAltPressed`, `s_bMetaPressed`) by querying the application's current modifier key state.
+ * Relies on `App.modifierKeyState()`.
+ * @returns {void}
+ */
+function updateModifierKeyState() {
+    // Get the current modifier key state
+    var nModifierState = App.modifierKeyState();
+    // Update variables that hold modifier key state
+    s_bShiftPressed = (nModifierState & 0x02000000) != 0;
+    s_bControlPressed = (nModifierState & 0x04000000) != 0;
+    s_bAltPressed = (nModifierState & 0x08000000) != 0;
+    s_bMetaPressed = (nModifierState & 0x10000000) != 0;
+}
+
+
+/**
+ * Checks if a QObject-like instance inherits from any of the specified type names.
+ * This is useful for determining the type of DAZ Studio objects.
+ * @param {object} oObject - The object to check. It should have an `inherits` method.
+ * @param {string[]} aTypeNames - An array of type names (strings) to check against.
+ * @returns {boolean} `true` if the object inherits from at least one of the specified types, `false` otherwise or if `oObject` is invalid.
+ */
+function inheritsType( oObject, aTypeNames )
+{
+    // If the object does not define the 'inherits' function
+    if( !oObject || typeof( oObject.inherits ) != "function" ){
+        // We are done... it is not a QObject
+        return false;
+    }
+
+    // Iterate over the list of type names
+    for( var i = 0, nTypes = aTypeNames.length; i < nTypes; i += 1 ){
+        // If the object does not inherit the 'current' type
+        if( !oObject.inherits( aTypeNames[i] ) ){
+            // Next!!
+            continue;
+        }
+
+        // Return the result
+        return true;
+    }
+
+    // Return the result
+    return false;
+};
+
+/**
+ * Call the named DAZ Action with the given settings object
+ * 
+ * @param {string} sClassName - The class name of the action to call
+ * @param {object} oSettings - A dictionary of settings as key/value pairs for the action, if the action requires settings
+ * 
+ */
+function triggerAction( sClassName, oSettings )
+{
+    // Get the action manager
+    var oActionMgr = MainWindow.getActionMgr();
+    // If we do not have an action manager
+    if( !oActionMgr ){
+        // We are done...
+        return;
+    }
+    
+    // Find the action we want
+    var oAction = oActionMgr.findAction( sClassName );
+    // If the action was not found
+    if( !oAction ){
+
+        log_failure_event(
+             text( "The \"%1\" action could not be found." ).arg( sClassName )
+        )
+        return;
+    }
+    
+    // If the action is disabled
+    if( !oAction.enabled ){
+
+        log_failure_event(
+            text( "The \"%1\" action is currently disabled." ).arg( oAction.text )
+        )
+        return;
+    }
+    
+    // If we have the necessary function (4.16.1.18) and we have settings
+    if( typeof( oAction.triggerWithSettings ) == "function" && oSettings ){
+        // Trigger execution of the action with the settings
+        oAction.triggerWithSettings( oSettings );
+    } else {
+        // Trigger execution of the action
+        oAction.trigger();
+    }
+};
+
+
+function buildLabelListFromArray(aSourceList) {
+    var return_list=[];
+    for (var n = 0; n < aSourceList.length; n++) {
+        return_list.push(aSourceList[n].getLabel());
+    }
+    return return_list;
+}
+
+function extractNameAndSuffix(sSourceName) 
+{
+    var expr = RegExp("[0-9]+$");
+    var slice_name;
+    var suffix;
+
+    test = sSourceName.search(expr);
+    if (test == -1) {
+        suffix     = 0;
+        slice_name = sSourceName;
+    } else {
+        suffix     = sSourceName.slice(test);
+        slice_name = sSourceName.slice(0, test);
+    }
+
+    var rv=[];
+    rv[0] = slice_name;
+    rv[1] = suffix;
+
+    return rv;
+}
+
+function getNextNumericalSuffixedName(sSourceName, increment_size, next_scene_number)
+{
+    log_info(
+        {
+            'sSourceName': sSourceName,
+            'increment_size': increment_size,
+            'next_scene_number': next_scene_number
+        }
+    );
+
+    // Get the initial base name 
+    var aNameAndSuffix = extractNameAndSuffix(sSourceName);
+    var sNakedName     = aNameAndSuffix[0];
+    var iNakedSuffix   = parseInt(aNameAndSuffix[1]);
+
+    // If we specify the next_scene_number, then we just replace any existing number
+    // suffix and ignore everything else 
+    if (next_scene_number == null || next_scene_number == undefined || next_scene_number == false) {
+
+        // If we specify an increment value, use it, otherwise increment by 1 
+        if (increment_size == null || increment_size == undefined) {
+            increment_size = 1;
+        }
+
+        iNextSuffixValue = iNakedSuffix + increment_size;
+
+    } else {
+
+        iNextSuffixValue = next_scene_number;
+
+    }
+
+    log_info(
+        {
+            'aNameAndSuffix': JSON.stringify(aNameAndSuffix),
+            'sNakedName': sNakedName,
+            'iNakedSuffix': iNakedSuffix,
+            'iNextSuffixValue': iNextSuffixValue
+        }
+    )
+
+    new_name = sNakedName + iNextSuffixValue;
+
+    return new_name;
+}
+
+
+/**
+ * Get an updated scene file name that takes into account the numerical ending on the 
+ * the source filename and increments it by the specified amount. 
+ * 
+ * For example if the input_name = xyz0, return xyz1 
+ * 
+ * @param {string} input_file - The scene filename to increment 
+ * @param {integer} increment_size - Optional increment amount (default=1). Cannot be used with next_scene_number.
+ * @param {integer} next_scene_number - Optional next scene number to use instead of incrementing based on current scene number. Ignores increment_size if specified.
+ * @returns {string} A scene filename incremented by 1
+ */
+function incrementedSceneFileName(input_name, increment_size, next_scene_number) 
+{
+
+    var scene_file_name;
+    
+    if (input_name == null || input_name == undefined) {
+        scene_file_name = Scene.getFilename();
+    } else {
+        scene_file_name = input_name;
+    }
+    
+    var scene_info        = DzFileInfo(scene_file_name);
+    var scene_base_name   = scene_info.completeBaseName();
+    var scene_path        = scene_info.absolutePath();
+    var scene_extension   = scene_info.suffix();
+
+    sNewBaseName = getNextNumericalSuffixedName(scene_base_name, increment_size, next_scene_number);
+
+    var resultStr = scene_path + "/" + sNewBaseName + "." + scene_extension;
+
+    return resultStr;
+
+}
+
+/**
+ * Retrieves a human-readable error string for a `DzFile` object based on its error state.
+ * @param {DzFile} oFile - The `DzFile` object to get the error string from.
+ * @returns {string} A string describing the file error, or an empty string if no error.
+ */
+function getFileErrorString( oFile )
+{
+    // Initialize
+    var aResult = [];
+
+    // Based on the error type
+    switch( oFile.error() ){
+        case DzFile.NoError:
+            break;
+        case DzFile.ReadError:
+            aResult.push( "Read Error" );
+            break;
+        case DzFile.WriteError:
+            aResult.push( "Write Error" );
+            break;
+        case DzFile.FatalError:
+            aResult.push( "Fatal Error" );
+            break;
+        case DzFile.ResourceError:
+            aResult.push( "Resource Error" );
+            break;
+        case DzFile.OpenError:
+            aResult.push( "Open Error" );
+            break;
+        case DzFile.AbortError:
+            aResult.push( "Abort Error" );
+            break;
+        case DzFile.TimeOutError:
+            aResult.push( "TimeOut Error" );
+            break;
+        case DzFile.UnspecifiedError:
+            aResult.push( "Unspecified Error" );
+            break;
+        case DzFile.RemoveError:
+            aResult.push( "Remove Error" );
+            break;
+        case DzFile.RenameError:
+            aResult.push( "Rename Error" );
+            break;
+        case DzFile.PositionError:
+            aResult.push( "Position Error" );
+            break;
+        case DzFile.ResizeError:
+            aResult.push( "Resize Error" );
+            break;
+        case DzFile.PermissionsError:
+            aResult.push( "Permissions Error" );
+            break;
+        case DzFile.CopyError:
+            aResult.push( "Copy Error" );
+            break;
+    }
+
+    // Append the error string from the file object itself
+    aResult.push( oFile.errorString() );
+
+    // Return the result string, joined if multiple parts exist
+    return aResult.length > 0 ? aResult.join( ": " ) : "";
+};
+
+/**
+ * Reads data (string or QByteArrayWrapper) as a JSON structure 
+ * @param {string} sFilename - The path to the file read from
+ * @param {string | QByteArrayWrapper} vData - The data to write. Can be a string or a QByteArrayWrapper-like object.
+ * @param {number} nMode - The file open mode (e.g., `DzFile.WriteOnly`, `DzFile.Append`, `DzFile.Truncate`).
+ *                         See DAZ Studio `DzFile` documentation for open modes.
+ * @returns {DzObject} An EMCAScript Object on success, null on failure
+ */
+function readFromFileAsJson(sFilename) {
+// If we do not have a file path
+    if( sFilename.isEmpty() ){
+        log_failure_event("Required argument sFilename is null");
+        return null;
+    }
+
+    // Create a new file object
+    var oFile = new DzFile( sFilename );
+
+     // Open the file
+    if( !oFile.open( DzFile.ReadOnly ) ){
+        // Return failure
+       log_failure_event( sFilename + " could not be opened. " + getFileErrorString( oFile ));
+    }
+
+    oContent = JSON.parse(oFile.read());
+
+    return oContent;
+
+}
+
+/**
+ * Writes data (string or QByteArrayWrapper) to a specified file.
+ * @param {string} sFilename - The path to the file to write to.
+ * @param {string | QByteArrayWrapper} vData - The data to write. Can be a string or a QByteArrayWrapper-like object.
+ * @param {number} nMode - The file open mode (e.g., `DzFile.WriteOnly`, `DzFile.Append`, `DzFile.Truncate`).
+ *                         See DAZ Studio `DzFile` documentation for open modes.
+ * @returns {string} An empty string on success, or an error message string on failure.
+ */
+function writeToFile( sFilename, vData, nMode )
+{
+    // If we do not have a file path
+    if( sFilename.isEmpty() ){
+        // Return failure
+        return "Empty filename.";
+    }
+
+    // Create a new file object
+    var oFile = new DzFile( sFilename );
+
+    // If the file is already open
+    if( oFile.isOpen() ){
+        // Return failure
+        return sFilename + " is already open.";
+    }
+
+    // Open the file
+    if( !oFile.open( nMode ) ){
+        // Return failure
+        return sFilename + " could not be opened. " + getFileErrorString( oFile );
+    }
+
+    // Initialize
+    var nBytes = 0;
+
+    // Based on the type of the data
+    switch( typeof( vData ) ){
+        case "string":
+            // If we have data to write
+            if( !vData.isEmpty() ){
+                // Write the data to the file
+                nBytes = oFile.write( vData );
+            }
+            break;
+        case "object":
+            // If we have a ByteArray (checked using inheritsType for QByteArrayWrapper)
+            if( inheritsType( vData, ["QByteArrayWrapper"] )
+            && vData.length > 0 ){
+                // Write the data to the file
+                nBytes = oFile.writeBytes( vData );
+            }
+            break;
+    }
+
+    // Close the file
+    oFile.close();
+
+    // Initialize
+    var sError = "";
+
+    // If an error occured during write (nBytes < 0)
+    if( nBytes < 0 ){
+        // Provide feedback
+        sError = getFileErrorString( oFile );
+    }
+
+    // If bytes were not written (or an error occurred resulting in nBytes not being positive)
+    if( nBytes < 1 && sError.isEmpty() ){ // Check sError to avoid overriding a specific write error
+        // Return failure
+        return "No bytes written.";
+    }
+
+    // Return result (error string if any, otherwise empty for success)
+    return sError;
+};
+
+/**
+ * Sets required options within a DAZ Studio settings object.
+ * Sets "CompressOutput" to `false` and "RunSilent" based on `bShowOptions`.
+ * @param {DzSettings} oSettings - The DAZ Studio settings object to modify.
+ * @param {boolean} bShowOptions - If `true`, "RunSilent" is set to `false`. If `false`, "RunSilent" is set to `true`.
+ * @returns {void}
+ */
+function setRequiredOptions( oSettings, bShowOptions )
+{
+    // Set the initial state of the compress file checkbox
+    oSettings.setBoolValue( "CompressOutput", false );
+
+    // Do not to show the options (if bShowOptions is false)
+    oSettings.setBoolValue( "RunSilent", !bShowOptions );
+};
+
+
+/**
+ * Initializes the logging system by opening a log file.
+ * The global `log_file` variable will hold the `DzFile` object.
+ * @param {string} sLogFile - The path to the log file.
+ * @param {boolean} bOverwrite - If `true`, the log file will be truncated (overwritten).
+ *                               If `false`, new log entries will be appended.
+ * @returns {void}
+ */
+function init_log(sLogFile, bOverwrite) {
+
+    log_file = new DzFile(sLogFile); // Corrected: Added 'new' keyword
+
+    var open_mode = DzFile.Append;
+
+    if (bOverwrite == true) {
+        open_mode = DzFile.Truncate;
+    }
+
+    if (log_file.open (open_mode) == false) {
+        App.writeToLog (App.MessageError, "ExtApp:DazCopilotRazor", "Failed to open event logging file: " + sLogFile, true);
+        log_file = null;
+    } else {
+        App.writeToLog (App.MessageNormal, "ExtApp:DazCopilotRazor", "Opened event logging file: " + sLogFile, true);
+    }
+}
+
+
+
+/**
+ * Closes the currently open log file if it exists.
+ * @returns {void}
+ */
+function close_log() {
+    if (log_file != null) {
+        log_file.close();
+    }
+}
+
+
+
+/**
+ * Initializes script utilities. This includes:
+ * - Setting the global log source name (`s_logSourceName`).
+ * - Initializing the log file (hardcoded to 'C:/Temp/razor_events.log', append mode).
+ * - Updating modifier key states.
+ * - Parsing script arguments (expected to be a JSON string in `App.scriptArgs[0]`) and logging them.
+ * @param {string} log_source_id - The identifier to use as the source for log entries.
+ * @returns {object | null} The parsed script arguments object, or `null` if parsing fails or no arguments.
+ *                          (Note: current implementation logs but doesn't explicitly handle JSON parse errors for return).
+ */
+function init_script_utils(log_source_id) {
+
+    s_logSourceName = log_source_id;
+
+    init_log('C:/Temp/razor.log', false);
+
+    // If the "Action" global transient is defined, and its the correct type
+    if( typeof( Action ) != "undefined" && Action.inherits( "DzScriptAction" ) ){
+        // If the current key sequence for the action is not pressed
+        if( !App.isKeySequenceDown( Action.shortcut ) ){
+            updateModifierKeyState();
+        }
+    // If the "Action" global transient is not defined
+    } else if( typeof( Action ) == "undefined" ) {
+        updateModifierKeyState();
+    }
+
+    var sVars = null; // Initialize to null
+    if (App.scriptArgs && App.scriptArgs.length > 0 && App.scriptArgs[0]) {
+        try {
+            sVars = JSON.parse(App.scriptArgs[0]);
+            log_info(
+                {
+                    'message': "Extracted script Args = " + JSON.stringify(sVars)
+                }
+            );
+        } catch (e) {
+            log_error(
+                {
+                    'message': "Failed to parse script Args: " + App.scriptArgs[0],
+                    'error': e.toString()
+                }
+            );
+        }
+    } else {
+        log_info(
+            {
+                'message': "No script arguments provided or App.scriptArgs[0] is empty."
+            }
+        );
+	sVars={}
+    }
+
+
+    return sVars;
+}
+
+
+/**
+ * Closes resources initialized by `init_script_utils`, specifically the log file.
+ * @returns {void}
+ */
+function close_script_utils() {
+    close_log();
+}
+
+
+/**
+ * Logs an event to the initialized log file.
+ * The event is logged as a JSON string containing source, timestamp, event type, name, and additional info.
+ * @param {string} event_type - The type of the event (e.g., "INFO", "ERROR").
+ * @param {string} event_name - A name or category for the event.
+ * @param {object} [event_info=null] - An optional object containing additional key-value pairs to include in the log entry.
+ * @returns {void}
+ */
+function log_event(event_type, event_name, event_info) {
+    if (log_file == null || !log_file.isOpen()) {
+        // Optionally, print to console if log file isn't available
+        // print("Log file not initialized. Event: " + event_type + " - " + event_name);
+        return;
+    }
+
+    var base_message = {
+        'source': s_logSourceName,
+        'dtg': Date.now(),
+        'event_type': event_type,
+        'event_name': event_name
+    };
+
+    //App.verbose("X X OBJECT=" + JSON.stringify(event_info))
+
+    if (event_info != null && event_info != undefined) {
+        var keyset = Object.keys(event_info); // Corrected: 'var' for keyset
+        for (var n = 0; n < keyset.length; n++) {
+            var key = keyset[n]; // Corrected: 'var' for key
+            var value = event_info[key]; // Corrected: 'var' for value
+            base_message[key] = value;
+        }
+    }
+
+    log_file.writeLine(JSON.stringify(base_message));
+}
+
+
+/**
+ * Logs an informational event. Convenience wrapper for `log_event`.
+ * @param {string} event_name - A name or category for the informational event.
+ * @param {object} [event_info=null] - An optional object containing additional details.
+ * @returns {void}
+ */
+function log_info(event_info) {
+    log_event("INFO", s_logSourceName, event_info);
+}
+
+/**
+ * Logs a warning event. Convenience wrapper for `log_event`.
+ * @param {string} event_name - A name or category for the warning event.
+ * @param {object} [event_info=null] - An optional object containing additional details.
+ * @returns {void}
+ */
+function log_warning(event_info) {
+    log_event("WARNING", s_logSourceName, event_info);
+}
+
+/**
+ * Logs an error event. Convenience wrapper for `log_event`.
+ * @param {string} event_name - A name or category for the error event.
+ * @param {object} [event_info=null] - An optional object containing additional details.
+ * @returns {void}
+ */
+function log_error(event_info) {
+    log_event("ERROR", s_logSourceName, event_info);
+}
+
+/**
+ * Logs a debug event. Convenience wrapper for `log_event`.
+ * @param {string} event_name - A name or category for the debug event.
+ * @param {object} [event_info=null] - An optional object containing additional details.
+ * @returns {void}
+ */
+function log_debug(event_info) {
+    log_event("DEBUG", s_logSourceName, event_info);
+}
+
+function log_success_event(message) {
+    log_info ({'status':'success', 'message': message});
+}
+
+function log_failure_event(message) {
+    log_error ({'status':'failed', 'message': message});
+}
+
+/**
+ * Transfers all properties from a source camera to a target camera.
+ * @param {DzCamera} oTargetCamera - The camera to which properties will be copied.
+ * @param {DzCamera} oSourceCamera - The camera from which properties will be copied.
+ * @returns {void}
+ */
+function transferCameraProperties(oTargetCamera, oSourceCamera) {
+    if (!oTargetCamera || !oSourceCamera || !oSourceCamera.getNumProperties || !oTargetCamera.getProperty) {
+        log_error({ "message": "Invalid camera objects provided." });
+        return;
+    }
+    var iCountProperties = oSourceCamera.getNumProperties();
+    for (var x = 0; x < iCountProperties; x++) {
+        // Basic check to ensure property exists on target, though typically they should match for same camera types
+        if (oTargetCamera.getProperty(x) && oSourceCamera.getProperty(x)) {
+            oTargetCamera.getProperty(x).setValue(oSourceCamera.getProperty(x).getValue());
+        }
+    }
+}
+
+/**
+ * Gets a list of currently selected nodes in the scene that are of type `DzBone`.
+ * Relies on `Scene.getNodeList()`.
+ * @returns {DzBone[]} An array of `DzBone` objects.
+ */
+function getSkeletonNodes() {
+    var aSelectedNodes = Scene.getNodeList();
+    var aSkeletonNodes = [];
+
+    for (var x = 0; x < aSelectedNodes.length; x++) {
+        var oSelectedNode = aSelectedNodes[x]; // Corrected: 'var' for oSelectedNode
+        if (oSelectedNode.inherits("DzBone")) {
+            aSkeletonNodes.push (oSelectedNode);
+        }
+    }
+    return aSkeletonNodes;
+}
+
+/**
+ * Transfers transformation (translation, rotation, scale) properties from one node (or its skeleton)
+ * to another node (or its skeleton).
+ * For `DzBone` objects, it operates on their containing `DzSkeleton`.
+ * @param {DzNode} oToNode - The node whose transforms will be the source.
+ * @param {DzNode} oFromNode - The node whose transforms will be set (destination).
+ * @param {boolean} bTranslate - If `true`, transfer translation.
+ * @param {boolean} bRotate - If `true`, transfer rotation.
+ * @param {boolean} bScale - If `true`, transfer scale.
+ * @returns {void}
+ */
+function transferNodeTransforms(oToNode, oFromNode, bTranslate, bRotate, bScale) {
+    var from_skeleton, to_skeleton; // Corrected: declare variables
+
+    if (oFromNode.inherits("DzBone")) {
+        from_skeleton = oFromNode.getSkeleton();
+    } else {
+        from_skeleton = oFromNode;
+    }
+
+    if (oToNode.inherits("DzBone")) {
+        to_skeleton = oToNode.getSkeleton();
+    } else {
+        to_skeleton = oToNode;
+    }
+
+    if (!from_skeleton || !to_skeleton) {
+        log_error({ 'message': 'Invalid node or skeleton objects.' });
+        return;
+    }
+
+    log_info(
+        {
+            'from_node': oFromNode.getLabel(),
+            'to_node': oToNode.getLabel(),
+            'transforms':  {
+                'translate': bTranslate,
+                'rotate': bRotate,
+                'scale': bScale
+            }
+        }
+    );
+
+    if (bTranslate) {
+        var wsVector = to_skeleton.getWSPos(); // Corrected: 'var' for wsVector
+        from_skeleton.getXPosControl().setValue (wsVector.x);
+        from_skeleton.getYPosControl().setValue (wsVector.y);
+        from_skeleton.getZPosControl().setValue (wsVector.z);
+    }
+
+    if (bRotate) {
+        from_skeleton.getXRotControl().setValue (to_skeleton.getXRotControl().getValue());
+        from_skeleton.getYRotControl().setValue (to_skeleton.getYRotControl().getValue());
+        from_skeleton.getZRotControl().setValue (to_skeleton.getZRotControl().getValue());
+    }
+
+    if (bScale) {
+        from_skeleton.getXScaleControl().setValue (to_skeleton.getXScaleControl().getValue());
+        from_skeleton.getYScaleControl().setValue (to_skeleton.getYScaleControl().getValue());
+        from_skeleton.getZScaleControl().setValue (to_skeleton.getZScaleControl().getValue());
+    }
+}
+
+function getRootNode( oNode )
+{
+    // If we have a node and it is a bone
+    if( oNode && inheritsType( oNode, ["DzBone"] ) ){
+        // We want the skeleton
+        return oNode.getSkeleton();
+    }
+    
+    // Return the original node
+    return oNode;
+};
+
+// void : A function for setting the default options
+function setDefaultOptions( oSettings )
+{
+    // Set the initial state of the compress file checkbox
+    oSettings.setBoolValue( "CompressOutput", false );
+};
+
+// void : A function for adding an element name
+function setElementOption( oSettings, sElementSettingsKey, sElementName )
+{
+    // Get the (nested) settings that hold the named element
+    var oElementsSettings = oSettings.getSettingsValue( sElementSettingsKey );
+    // If the object doesn't already exist
+    if( !oElementsSettings ){
+        // Create it
+        oElementsSettings = oSettings.setSettingsValue( sElementSettingsKey );
+    }
+    
+    // Declare working variable
+    var sElement;
+    
+    // Initialize
+    var i = 0;
+    
+    // Iterate over the element names
+    for( nElements = oElementsSettings.getNumValues(); i < nElements; i += 1 ){
+        // Get the 'current' element name
+        sElement = oElementsSettings.getValue( i );
+        // If the name is the same as the one we are adding
+        if( sElement == sElementName ){
+            // We are done...
+            return;
+        }
+    }
+    
+    // Create it
+    oElementSettings = oElementsSettings.setStringValue( String( i ), sElementName );
+};
+
+function setNodeOption( oSettings, sNodeName )
+{
+    // Set the property options for the named node
+    setElementOption( oSettings, "NodeNames", sNodeName );
+};
+
+// void : A function for adding multiple nodes names
+function setNodeOptions( oSettings, aNodeNames )
+{
+    // Iterate over the node names array
+    for( var i = 0; i < aNodeNames.length; i += 1 ){
+        // Set the property options for the 'current' node name
+        setNodeOption( oSettings, aNodeNames[ i ] );
+    }
+};
+	
+
+/**
+ * Generates a random value within a specified range.
+ * @param {number} low_range - The lower bound of the random range.
+ * @param {number} high_range - The upper bound of the random range.
+ * @returns {number} A random number between `low_range` and `high_range`.
+ */
+function getRandomValue(low_range, high_range) {
+    var output = Math.random() * (high_range - low_range) + low_range; // Corrected: ensure low_range is the minimum
+
+    log_info (
+          {
+              "function":"getRandomRotationValue",
+              "inputs": [low_range, high_range],
+              "output": output
+          }
+         );
+
+    return Number(output);
+}
+
+/**
+ * Sets the Y-axis rotation of a given node (or its skeleton if it's a `DzBone`).
+ * @param {DzNode} oFromNode - The node to rotate. If it's a `DzBone`, its skeleton will be rotated.
+ * @param {number} fValue - The rotation value in degrees for the Y-axis.
+ * @returns {void}
+ */
+function transformNodeRotate(oFromNode, fValue, sAxis) {
+    var from_skeleton; // Corrected: declare variable
+
+    if (oFromNode.inherits("DzBone")) {
+        from_skeleton = oFromNode.getSkeleton();
+    } else {
+        from_skeleton = oFromNode;
+    }
+
+    if (!from_skeleton || !from_skeleton.getYRotControl) {
+        log_error(
+            { 
+                'message': 'Invalid node or skeleton object, or missing YRotControl.' 
+            }
+        );
+        return;
+    }
+
+    switch (sAxis) {
+        case Y_AXIS:
+            from_skeleton.getYRotControl().setValue (fValue);
+            break;
+        case X_AXIS:
+            from_skeleton.getXRotControl().setValue (fValue);
+            break;
+        case Z_AXIS:
+            from_skeleton.getZRotControl().setValue (fValue);
+            break;
+        default:
+            log_failure_event('Invalid rotation axis: ' + sAxis);
+            break;
+    }
+}
+
+/**
+ * Sets the arbitrary translation of a given node (or its skeleton if it's a `DzBone`).
+ * @param {DzNode} oFromNode - The node to translate. If it's a `DzBone`, its skeleton will be rotated.
+ * @param {DzNode} sAxis - The axis to translate against. Is one of 'x', 'y', or 'z'
+ * @param {number} fValue - The translation value in units for the Y-axis.
+ * @returns {void}
+ */
+function dropNodeToNode(oFromNode, sAxis, fValue) {
+    var from_skeleton; // Corrected: declare variable
+
+    if (oFromNode.inherits("DzBone")) {
+        from_skeleton = oFromNode.getSkeleton();
+    } else {
+        from_skeleton = oFromNode;
+    }
+
+    if (!from_skeleton || !from_skeleton.getYRotControl) {
+        log_error({ 'message': 'Invalid node or skeleton object, or missing YRotControl.' });
+        return;
+    }
+
+    fromX=from_skeleton.getXPosControl().getValue();
+    fromY=from_skeleton.getYPosControl().getValue();
+    fromZ=from_skeleton.getZPosControl().getValue();
+
+    switch (sAxis) {
+        case 'x':
+        case 'X':
+            from_skeleton.getXPosControl().setValue (fValue);
+            log_info(
+                {
+                    'status': 'success', 
+                    'message': "X-translated object " + oFromNode.getLabel() + " from position X=" + fromX + " to X=" + fValue
+                }
+            )
+            break;
+        case 'y':
+        case 'Y':
+            from_skeleton.getYPosControl().setValue (fValue);
+            log_info(
+                {
+                    'status': 'success', 
+                    'message': "Y-translated object " + oFromNode.getLabel() + " from position Y=" + fromY + " to Y=" + fValue
+                }
+            )
+            break;
+        case 'z':
+        case 'Z':
+            from_skeleton.getZPosControl().setValue (fValue);
+            log_info(
+                {
+                    'status': 'success', 
+                    'message': "Z-translated object " + oFromNode.getLabel() + " from position Z=" + fromZ + " to Z=" + fValue
+                }
+            )
+            break;
+        default:
+            break;
+    }
+}
+
+/**
+ * Retrieves the camera associated with the active 3D viewport.
+ * Relies on `MainWindow.getViewportMgr()`.
+ * @returns {DzCamera | null} The active viewport camera, or `null` if not found.
+ */
+function getViewportCamera() {
+    var viewPortMgr = MainWindow.getViewportMgr();
+    if (!viewPortMgr) return null;
+    var activeVP = viewPortMgr.getActiveViewport();
+    if (!activeVP) return null;
+    var viewPort = activeVP.get3DViewport();
+    if (!viewPort) return null;
+    var camera = viewPort.getCamera();
+
+    return camera;
+}
+
+/**
+ * Retrieves the camera associated with the active 3D viewport.
+ * Relies on `MainWindow.getViewportMgr()`.
+ * @returns {DzCamera | null} The active viewport camera, or `null` if not found.
+ */
+function setViewportCamera(oCamera) {
+    var viewPortMgr = MainWindow.getViewportMgr();
+    if (!viewPortMgr) return null;
+    var activeVP = viewPortMgr.getActiveViewport();
+    if (!activeVP) return null;
+    var viewPort = activeVP.get3DViewport();
+    if (!viewPort) return null;
+    var camera = viewPort.setCamera(oCamera.getName());
+
+    return camera;
+}
+
+/*********************************************************************/
+/**
+ * Finds a camera in the scene by its label (name).
+ * Relies on `Scene.findCameraByLabel()`.
+ * @param {string} camera_label - The label of the camera to find.
+ * @returns {DzCamera | null} The found camera, or `null` if no camera with that label exists.
+ */
+function getNamedCamera(camera_label) {
+    return Scene.findCameraByLabel(camera_label);
+}
+
+/**
+ * Retrieves a list of "valid" cameras based on criteria defined in a render configuration object.
+ * Criteria can be "all_visible", "pattern" (matching a label pattern), or defaults to the viewport camera.
+ * @param {object} oRenderConfig - An object containing camera selection criteria.
+ *   Expected properties:
+ *   - `cameras` (string): "all_visible", "pattern", or other (implies viewport camera).
+ *   - `camera_pattern` (string, RegExp): Reguired if `cameras` is "pattern".
+ * @returns {DzCamera[]} An array of `DzCamera` objects that meet the criteria.
+ */
+function getValidCameraList(oRenderConfig) {
+    // Get the list of cameras associated with the scene
+    var aCameraList = Scene.getCameraList();
+    var aCameraListActual = [];
+    var sCameraSelectionCriteria = oRenderConfig ? oRenderConfig['cameras'] : null;
+
+
+    switch (sCameraSelectionCriteria) {
+
+        case "all_visible":
+            for (var n = 0; n < aCameraList.length; n++) {
+                var oCamera = aCameraList[n];
+                var sCameraName = oCamera.getLabel();
+                if (oCamera.isVisible()) {
+                    aCameraListActual.push(oCamera);
+                }
+            }
+            break;
+        case "viewport":
+            var viewportCam = getViewportCamera();
+            if (viewportCam) {
+                aCameraListActual.push (viewportCam);
+            }
+            break;
+        default:
+            for (var n = 0; n < aCameraList.length; n++) {
+                var oCamera = aCameraList[n];
+                var sCameraName = oCamera.getLabel();
+                var match_index  = sCameraName.search(new RegExp(sCameraSelectionCriteria)); // Create RegExp from string
+                if (match_index != -1) {
+                    aCameraListActual.push(oCamera);
+                }
+            }
+            break;
+    }
+    return aCameraListActual;
+}
+
+/**
+ * Creates a new perspective camera (`DzBasicCamera`), names it, adds it to the scene,
+ * and positions/orients it to match the current viewport camera's view.
+ * @param {string} cameraLabelPrefix - A prefix for the new camera's label.
+ * @param {string} cameraName - The main name for the new camera.
+ * @param {string} cameraClass - A class or category string to append to the camera name.
+ * @returns {DzBasicCamera | null} The newly created camera, or `null` if a camera with the proposed name already exists or viewport camera is not found.
+ */
+function createPerspectiveCamera(cameraLabelPrefix, cameraName, cameraClass) {
+    var oNewCamera = null;
+    var sFunctionName = "createPerspectiveCamera"; // For logging context
+
+    var proposed_camera_name = cameraLabelPrefix + " " + cameraName + " " + cameraClass;
+    var test = Scene.findCameraByLabel(proposed_camera_name);
+    if (test == null) {
+        log_info (
+              {
+                  'camera': {
+                      'prefix': cameraLabelPrefix,
+                      'name': cameraName,
+                      'class': cameraClass,
+                      'full_name': proposed_camera_name
+                  }
+              }
+             );
+
+        oNewCamera = new DzBasicCamera(); // Corrected: Added 'new'
+        oNewCamera.setLabel(proposed_camera_name);
+        Scene.addNode(oNewCamera);
+        log_info({'name': proposed_camera_name, 'status': 'success'}); // Corrected function name for logging
+
+        var camera = getViewportCamera();
+        if (camera) {
+            var cameraToCopyCoords = camera.getFocalPoint();
+            var camPosToCopy = camera.getWSPos();
+
+            oNewCamera.setWSPos(camPosToCopy);
+            oNewCamera.aimAt(cameraToCopyCoords);
+        } else {
+            log_warning({'name': proposed_camera_name, 'status': 'partial_success', 'message': 'Viewport camera not found, new camera created at origin.'});
+        }
+
+    } else {
+        log_info({'name': proposed_camera_name, 'status': 'failed', 'message': 'Proposed camera already exists'}); // Corrected function name
+        return null; // Return null if camera already exists
+    }
+
+    return oNewCamera;
+}
+
+/**
+ * Selects a single node in the scene by its label. All other nodes are deselected.
+ * @param {string} label - The label of the node to select.
+ * @returns {DzNode | null} The selected node if found, otherwise `null`.
+ */
+function select_node(label) {
+    var rv=null; // Corrected: 'var' for rv
+    Scene.selectAllNodes(false);
+    var node   = Scene.findNodeByLabel (label); // Corrected: 'var' for node
+    if (node == null) {
+        log_warning ({"message": "Could not find requested node: " + label});
+    } else {
+        node.select();
+        rv=node;
+    }
+    return rv;
+}
+
+/**
+ * Deletes a node from the scene by its label.
+ * It first selects the node and then attempts to remove it.
+ * @param {string} label - The label of the node to delete.
+ * @returns {void}
+ */
+function delete_node(label) {
+    var rv = select_node(label); // Corrected: 'var' for rv
+    if (rv != null) {
+        var valid = Scene.removeNode(rv); // Corrected: 'var' for valid
+        if (!valid) {
+            log_warning({"message": "Failed to remove node: " + label}); // Corrected: "delete_node" from "select_node"
+        }
+    }
+}
+
+
+/**
+ * Formats a number by padding it with leading zeros to reach a specified total size.
+ * @param {number | string} input_number - The number to pad.
+ * @param {number} padding_size - The desired minimum number of digits for the output string (controls the number of leading zeros).
+ *                                For example, if padding_size is 3, numbers like 7 become "007".
+ *                                Note: The logic `slice(-(padding_size+1))` seems to aim for `padding_size` number of zeros before the number if the number itself is single digit.
+ *                                If input_number is '5' and padding_size is 2, it becomes '005'.
+ *                                If input_number is '15' and padding_size is 2, it becomes '015'.
+ *                                Consider if `slice(-padding_size)` is intended to make the total length `padding_size`.
+ *                                Current behavior: ("000" + "5").slice(-4) -> "0005" (for padding_size=3)
+ *                                                ("00" + "5").slice(-3)  -> "005" (for padding_size=2)
+ * @returns {string} The zero-padded number as a string.
+ */
+function getZeroPaddedNumber(input_number, padding_size) {
+    var padstr="";
+    for (var x = 0; x < padding_size; x++) {
+        padstr=padstr+"0";
+    }
+    // Ensure input_number is a string for concatenation
+    var paddedNumber = (padstr + String(input_number)).slice (-(padding_size + String(input_number).length > padding_size ? String(input_number).length : padding_size));
+    var paddedNumberStr = (padstr + String(input_number));
+    paddedNumber = paddedNumberStr.slice(-(padding_size + 1));
+
+    return paddedNumber;
+}
+
+/**
+ * Displays a simple dialog with a text input field.
+ * @param {string} sCurrentText - Initial text to display in the input field.
+ * @returns {string} The text entered by the user if "OK" is clicked, otherwise an empty string if "Cancel" is clicked or dialog is closed.
+ *                   (Note: The original code implies empty string on cancel, but `wDlg.exec()` boolean is checked.
+ *                    If `bOut` is false, it returns an empty `rv`.)
+ */
+function getSimpleTextInput(sCurrentText)
+{
+    // Get the current style
+    var oStyle = App.getStyle();
+
+    // Get the height for buttons (not directly used for text edit size here)
+    // var nBtnHeight = oStyle.pixelMetric( "DZ_ButtonHeight" );
+
+    // Create a basic dialog
+    var wDlg = new DzBasicDialog();
+
+    // Get the wrapped widget for the dialog
+    var oDlgWgt = wDlg.getWidget();
+
+    // Set the title of the dialog
+    wDlg.caption = "Add scene notes"; // This title is fixed.
+
+    // Strip the space for a settings key
+    var sKey = wDlg.caption.replace( / /g, "" ) + "Dlg";
+
+    // Set an [unique] object name on the wrapped dialog widget;
+    // this is used for recording position and size separately
+    // from all other [uniquely named] DzBasicDialog instances
+    oDlgWgt.objectName = sKey;
+
+    // Create a text edit widget
+    var wTextWgt = new DzTextEdit(wDlg);
+
+    if (sCurrentText && sCurrentText.trim().length == 0) { // Check sCurrentText exists
+        wTextWgt.text = sCurrentText;
+    } else if (sCurrentText) {
+        wTextWgt.text = sCurrentText + "\n";
+    } else {
+        wTextWgt.text = "\n"; // Default if sCurrentText is null/undefined
+    }
+
+
+    wTextWgt.readOnly = false;
+    // wTextWgt.end(); // `end()` is not a standard method for DzTextEdit initialization.
+    // It's more for QXmlStreamWriter. Perhaps intended for cursor positioning.
+    // For QTextEdit (which DzTextEdit wraps), you might use moveCursor.
+    // wTextWgt.ensureCursorVisible(); // Good for ensuring cursor is visible.
+
+    // Add the widget to the dialog
+    wDlg.addWidget( wTextWgt );
+
+    // Get the minimum size of the dialog (optional, as layout might handle it)
+    // var sizeHint = oDlgWgt.minimumSizeHint;
+    // Set the fixed size of the dialog (generally, allow resizing or use layout)
+    // wDlg.setFixedSize( sizeHint.width, sizeHint.height );
+
+    var rv = "";
+    var bOut = wDlg.exec(); // Corrected: 'var' for bOut
+    // App.verbose ("#### Dialog out = " + bOut); // DAZ specific verbose logging
+
+    // If the user accepts the dialog
+    if( bOut) {
+        // Get the color from the widget (Comment is for color, but it's text)
+        rv = wTextWgt.plainText;
+    // If the user rejects the dialog, rv remains ""
+    }
+
+    return rv;
+};
+
+
+/**
+ * Prepares the Iray Server Bridge configuration settings.
+ * This function configures a `DzSettings` object for Iray Bridge and applies it
+ * to the given Iray renderer if the `setBridgeConfiguration` method is available.
+ * @param {object} oIrayConfig - An object containing Iray server connection details.
+ *   Expected properties:
+ *   - `secure_protocol` (string): "http" or "https".
+ *   - `iray_host` (string): The Iray server address.
+ *   - `iray_user` (string): The username for the Iray server.
+ *   - `iray_password` (string): The password for the Iray server.
+ *   - `iray_port` (number): The port number for the Iray server.
+ * @param {DzRenderMgr} oRenderMgr - The DAZ Studio Render Manager. (Used to get render options, but not directly in this function's core logic for bridge config)
+ * @param {DzRenderer} oRenderer - The Iray Renderer instance (e.g., `DzIrayRenderer`).
+ * @returns {void}
+ */
+function prepareIrayBridgeConfiguration(oIrayConfig, oRenderMgr, oRenderer) {
+    // Define the image file extension (not used in this function)
+    // var sExtension = "png";
+
+
+    App.verbose("*************** oic = " + JSON.stringify(oIrayConfig));
+
+
+    // Define the URI components
+    var sProtocol = oIrayConfig['iray-protocol'];
+    var sServerAddress = oIrayConfig['iray-server'];
+    var sUser = oIrayConfig['iray-user'];
+    var sPass = oIrayConfig['iray-password'];
+    var iPort = oIrayConfig['iray-port'];
+
+    // Declare working variables
+    var oSettings;
+    // var oSubSettings; // Not used
+
+    // Get the render options for the job (not directly used for bridge config here)
+    // var oRenderOptions = oRenderMgr.getRenderOptions();
+
+    // If DzIrayRenderer::setBridgeConfiguration() is available - i.e., 4.21.1.11+
+    if( oRenderer && typeof( oRenderer.setBridgeConfiguration ) == "function" ) { // Added check for oRenderer
+        // Create a settings object
+        oSettings = new DzSettings();
+
+        // Build the configuration settings
+        oSettings.setIntValue    ( "Connection", 0 ); // 0 typically means "NVIDIA Iray Server"
+        oSettings.setStringValue ( "Server", sServerAddress );
+        oSettings.setBoolValue   ( "Secure", sProtocol == "https" );
+        oSettings.setIntValue    ( "Port", iPort);
+        oSettings.setStringValue ( "Username", sUser);
+        oSettings.setStringValue ( "Password", sPass);
+
+        oRenderer.setBridgeConfiguration( oSettings );
+
+        log_success_event( "Prepared iray bridge configuration = " + oSettings);
+
+    } else {
+        log_warning( {"message": "oRenderer.setBridgeConfiguration is not available or renderer is null."});
+    }
+}
+
+/**
+ * Executes a batch rendering process based on the provided configuration.
+ * It can render to local files, a new window, or an Iray Server via the bridge.
+ * Iterates through specified cameras and frames.
+ * @param {object} oRenderConfig - Configuration object for the batch render.
+ *   Expected properties:
+ *   - `cameras` (string): Camera selection mode ("all_visible", "pattern", or other for viewport). Passed to `getValidCameraList`.
+ *   - `camera_pattern` (string, optional): Regex pattern for camera labels if `cameras` is "pattern".
+ *   - `priority` (number): Render job priority (for Iray Server).
+ *   - `first_frame` (number): The starting frame number for rendering.
+ *   - `last_frame` (number): The ending frame number (exclusive, renders up to `last_frame - 1`).
+ *   - `job_name_pattern` (string, optional): Pattern for naming render jobs/files. Placeholders: %s (scene name), %c (camera label), %f (frame number). Defaults to "%s_%c_%f".
+ *   - (For Iray Bridge) `secure_protocol`, `iray_host`, `iray_user`, `iray_password`, `iray_port`. These are part of `oIrayConfig` which is globally assumed or should be passed in.
+ *     The current code uses a global-like `oIrayConfig` in the call to `prepareIrayBridgeConfiguration`.
+ * @param {string} sRenderTarget - The target for rendering: "local-to-file", "local-to-window", or "iray-server-bridge".
+ * @param {string} [sOutputBasePath=null] - The base path for output files when `sRenderTarget` is "local-to-file".
+ *                                        If `null`, it defaults to the directory of the current scene file.
+ * @returns {void}
+ */
+function execBatchRender(oRenderConfig, sRenderTarget, sOutputBasePath)
+{
+
+    log_debug(
+       {
+          'oRenderConfig': JSON.stringify(oRenderConfig),
+	  'sRenderTarget': sRenderTarget,
+	  'sOutputBasePath': sOutputBasePath
+       }
+    );	
+
+
+    // Get the render manager
+    var oRenderMgr = App.getRenderMgr();
+    var oRenderer = oRenderMgr.findRenderer( "DzIrayRenderer" ); // Assumes Iray, could be more generic
+    var oIrayConfig = oRenderConfig['iray_config']
+
+    if (sRenderTarget == "iray-server-bridge") {
+        prepareIrayBridgeConfiguration(oIrayConfig, oRenderMgr, oRenderer);
+    }
+
+    // Render the current scene
+    var sSceneFile = Scene.getFilename();
+    if (!sSceneFile || sSceneFile.isEmpty()) {
+        log_error({'message': 'Scene is not saved. Cannot determine scene name or default output path.'});
+        return;
+    }
+    var sSceneInfo = new DzFileInfo(sSceneFile); // Corrected: 'new'
+    var sSceneName = sSceneInfo.completeBaseName();
+
+    // Get the list of cameras to render
+    var aCameraListActual = getValidCameraList(oRenderConfig);
+    if (aCameraListActual.length === 0) {
+        log_warning({'message': 'No valid cameras found to render based on configuration.'});
+        return;
+    } 
+
+
+    camera_str = JSON.stringify(buildLabelListFromArray(aCameraListActual));
+    log_info({'cameras': aCameraListActual.length, 'camera_names': camera_str});
+
+    var iPriority = oRenderConfig['priority'] || 0; // Default priority
+
+    var firstFrame = 0;
+    var lastFrame  = 1;
+    var frameset = oRenderConfig['frames'];
+    if (frameset != null && frameset != undefined) {
+        parts=frameset.split("-");
+        firstFrame=parseInt(parts[0].trim())
+        lastFrame=parseInt(parts[1].trim())
+    }
+
+    var frames_per_camera = Math.max(0, lastFrame - firstFrame); // Ensure non-negative
+
+    var sJobNamePattern = oRenderConfig['job_name_pattern'];
+    if (sJobNamePattern == undefined || sJobNamePattern.isEmpty()) { // Check for empty too
+        sJobNamePattern  = "%s_%c_%f";
+    }
+
+    if (sOutputBasePath == null || sOutputBasePath.isEmpty()) {
+        var parent = sSceneInfo.dir(); // Corrected: 'var'
+        sOutputBasePath = parent.absolutePath();
+    }
+
+    var sExtension = "png"; // Default extension for local-to-file
+    if (oRenderConfig['output_extension']) { // Allow overriding extension
+        sExtension = oRenderConfig['output_extension'];
+    }
+
+
+    log_info({'scenefile': sSceneFile, 'valid_cameras_count': aCameraListActual.length, 'target': sRenderTarget});
+
+    var render_count=0;
+    
+    // Iterate over the cameras in the scene
+    for (var n = 0; n < aCameraListActual.length; n++) {
+
+        render_count = render_count + 1;
+    	
+        oCamera = aCameraListActual[n]; // Corrected: 'var'
+        sCameraName = oCamera.getLabel(); // Corrected: 'var'
+
+        log_info(
+         {
+             'camera': {
+                 'name': sCameraName,
+                 'index': n,
+                 'total': aCameraListActual.length
+             }
+         }
+        );
+
+        for (var f = firstFrame; f < lastFrame; f++) {
+            Scene.setFrame(f);
+
+            var sJobName = sJobNamePattern.replace(/%s/g, sSceneName); // Use regex global replace
+            sJobName = sJobName.replace(/%c/g, sCameraName.replace(/[^a-zA-Z0-9_-]/g, '_')); // Sanitize camera name for job/file name
+            sJobName = sJobName.replace(/%f/g, "" + f);
+	        sJobName = sJobName.replace(/%r/g, "" + render_count);
+
+
+            log_info (
+                  {'camera': sCameraName,
+                   'camera_index': (n + 1) + "/" + aCameraListActual.length, // User-friendly 1-based index
+                   'frame_index': f, // Current frame being processed
+                   'total_frames_for_camera': lastFrame,
+                   'job_name': sJobName
+                  });
+
+
+            var oResponse = null;
+            var oRenderOptions = getDefaultLocalRenderOptions(oRenderMgr, oCamera);
+            //var oRenderOptions = oRenderMgr.getRenderOptions(); // Get fresh options for each render
+
+            switch (sRenderTarget) {
+                case "local-to-file":
+                case "direct-file":
+                    // var filepath = sSceneInfo.absoluteFilePath(); // Not used
+                    // var basename = sSceneInfo.completeBaseName(); // Already have sSceneName
+                    var sRenderFile = sOutputBasePath + "/" + sJobName + "." + sExtension; // Use sJobName
+                    oResponse = execLocalToFileRender(oRenderMgr, oRenderOptions, sRenderFile, oCamera); // Pass camera
+                    break;
+
+                case "local-to-window":
+                case "viewport":
+                    oResponse = execNewWindowRender(oRenderMgr, oRenderOptions, oCamera); // Pass camera
+                    break;
+
+                case "iray-server-bridge":
+                    if (oRenderer && typeof oRenderer.exportRenderToBridgeQueue === 'function') {
+                        oResponse = oRenderer.exportRenderToBridgeQueue(
+                            sJobName,
+                            sExtension, // Extension for bridge output
+                            oCamera,
+                            oRenderOptions, // Pass current render options
+                            iPriority
+                        );
+                    } else {
+                        log_error({ "message": "Iray renderer or exportRenderToBridgeQueue not available."});
+                    }
+                    break;
+                default:
+                    log_error(
+                        {
+                            "status": "failed",
+                            "message": "Unknown render target specified: " + sRenderTarget
+                            // "error": text(sMessage) // sMessage not defined here
+                        }
+                    );
+                    break;
+            }
+            // Declare working variable
+            var sMessage;
+
+            // If we have an error message member
+            if( oResponse != null && oResponse.hasOwnProperty( "errorMsg" ) ){
+                // Get the error message
+                sMessage = oResponse[ "errorMsg" ];
+
+                // If we have an error message
+                if( !sMessage.isEmpty() ){
+                    log_error(
+                        {"message": "Render Operation Error (" + sRenderTarget + ")",
+                        "job_name": sJobName,
+                        "error": text(sMessage)}); // Use DAZ's text for potential translation
+                }
+            } else if (oResponse == null && sRenderTarget === "iray-server-bridge" && !(oRenderer && typeof oRenderer.exportRenderToBridgeQueue === 'function')) {
+                // Logged above, but good to be aware response might be null due to API unavailability
+            } else if (oResponse == null && (sRenderTarget === "local-to-file" || sRenderTarget === "local-to-window")) {
+                 log_warning({'message': 'Render operation returned null, check DAZ logs for details.', 'job_name': sJobName});
+            }
+        } // Frame list
+    } // Camera List
+
+    log_info({'status': 'completed', 'scenefile': sSceneFile});
+}
+
+/**
+ * Gets default local render options, setting the active renderer, current frame render, and aspect constraint.
+ * @param {DzRenderMgr} oRenderMgr - The DAZ Studio Render Manager.
+ * @param {DzCamera} [oCamera=null] - The camera to set for rendering. If null, active/viewport camera is used by `doRender`.
+ * @returns {Array<DzRenderer, DzRenderOptions>} An array containing the active renderer and the configured render options.
+ *                                              Returns [null, null] if render manager or renderer is invalid.
+ */
+function getDefaultLocalRenderOptions(oRenderMgr, oCamera) // Added oCamera parameter
+{
+    if (!oRenderMgr) return [null, null];
+    var oRenderer = oRenderMgr.getActiveRenderer();
+    if (!oRenderer) return [null, null];
+
+    // Set the render options for the icon render
+    var oRenderOptions = oRenderMgr.getRenderOptions(); // Get a fresh copy
+    oRenderOptions.isCurrentFrameRender = true;
+    oRenderOptions.isAspectConstrained = true;
+    if (oCamera != undefined) {
+        log_debug({'message': 'Setting camera to ' + oCamera.getLabel()});
+
+        oRenderOptions.camera = oCamera; // Set the specific camera for this render
+    }
+    // oRenderOptions.renderImgToId = DzRenderOptions.Default; // Let specific functions set this
+
+    return oRenderOptions;
+}
+
+/**
+ * Load the specified scene file with the specified mode 
+ * 
+ * 
+ * @param {string} sSceneFile - Absolute path to the scene file to load 
+ * @param {integer} iMode - Scene file mode to load in. Valid values include Scene.OpenNew and Scene.MergeFile
+ * @returns {object} oError - An error object that contains error code and message if an error occurred
+ */
+function loadScene(sSceneFile, iMode) {
+
+    oError = Scene.loadScene(sSceneFile, iMode);
+
+    return oError;
+
+}
+
+/**
+ * Executes a local render, saving the output directly to a file.
+ * @param {DzRenderMgr} oRenderMgr - The DAZ Studio Render Manager.
+ * @param {DzRenderOptions} oRenderOptions - Pre-configured render options. Camera should be set in these options.
+ * @param {string} sRenderFile - The full path to the output image file.
+ * @param {DzCamera} oCamera - The camera to use for rendering.
+ * @returns {object | null} The response from `oRenderMgr.doRender()`, typically an object with status or error info, or null.
+ */
+function execLocalToFileRender(oRenderMgr, oRenderOptions, sRenderFile, oCamera) { // Added oCamera, oRenderOptions
+    if (!oRenderMgr || !oRenderOptions || !oCamera) {
+        log_error({"message": "Missing required parameters (RenderManager, RenderOptions, or Camera)."});
+        return null;
+    }
+    // var parts = getDefaultLocalRenderOptions(oRenderMgr, oCamera); // Options are now passed in
+    // var oRenderer = parts[0]; // Renderer not directly used here, but good to have from parts
+    // var oConfiguredOptions = parts[1];
+
+    oRenderOptions.camera = oCamera; // Ensure camera is set on the passed options
+    oRenderOptions.renderImgToId = DzRenderOptions.DirectToFile;
+    oRenderOptions.renderImgFilename = sRenderFile;
+    
+    // This call doesn't seem to take all the render options into account, specifically the camera, so we have to 
+    // change the camera in the scene first, then do the render. Boo!
+
+    var currentCamera = getViewportCamera();
+    if (currentCamera == null) {
+        log_failure_event("Could not locate a vaid viewport camera!");
+        return;
+    }
+
+    setViewportCamera(oCamera);
+
+    var oError = oRenderMgr.doRender(oRenderOptions);
+
+    log_info(
+        {
+            "target": "local file",
+            "camera": oCamera.getLabel(),
+            "output_file": sRenderFile,
+            "status": oError
+        }
+    )
+
+    setViewportCamera(currentCamera);
+}
+
+/**
+ * Executes a local render, displaying the output in a new window.
+ * @param {DzRenderMgr} oRenderMgr - The DAZ Studio Render Manager.
+ * @param {DzRenderOptions} oRenderOptions - Pre-configured render options. Camera should be set in these options.
+ * @param {DzCamera} oCamera - The camera to use for rendering.
+ * @returns {object | null} The response from `oRenderMgr.doRender()`, or null.
+ */
+function execNewWindowRender(oRenderMgr, oRenderOptions, oCamera) { // Added oCamera, oRenderOptions
+    if (!oRenderMgr || !oRenderOptions || !oCamera) {
+        log_error({"message": "Missing required parameters (RenderManager, RenderOptions, or Camera)."});
+        return null;
+    }
+
+    oRenderOptions.camera = oCamera; // Ensure camera is set
+    oRenderOptions.renderImgToId = DzRenderOptions.NewWindow;
+
+    var oError = oRenderMgr.doRender(oRenderOptions);
+
+     log_info(
+        {
+            "target": "new window",
+            "options": oRenderOptions,
+            "status": oError
+        }
+    )
+}

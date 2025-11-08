@@ -1,0 +1,70 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+
+var sAutoFocusScriptPath = "X:/DAZ Libraries/Project/Scripts/MikeD/Auto Focus Suite/MDAF Auto Focus on Selected Item.dse";
+var focus_script = null;
+var bFocusEnabled = null;
+
+function CreateBasicCameraSU() 
+{
+    sFunctionName = 'CreateBasicCameraSU';
+
+    oScriptVars = init_script_utils (sFunctionName);
+
+    sCameraName = oScriptVars['cam_name']; 
+    sCameraClass = oScriptVars['cam_class']; 
+    bFocusSelection = oScriptVars['focus']; 
+
+    if (bFocusEnabled == null) {
+        if (focus_script == null) {
+            focus_script = DzScript();
+            if (focus_script.loadFromFile(sAutoFocusScriptPath) == true) {
+                bFocusEnabled = true;
+            } else {
+                bFocusEnabled = false;
+                log_error(sFunctionName, {'status': 'failed', 'message': 'No valid auto-focus script has been defined! Check the documentation.'})
+            }
+        }
+    }
+
+    new_camera = createPerspectiveCamera ('SCAM', sCameraName, sCameraClass);
+
+    if (new_camera == null) {
+	    log_error({'status': 'failed', 'message': 'Could not create requested camera.'});
+    } else {
+        if (bFocusEnabled && bFocusSelection) {
+            new_camera.getDepthOfFieldControl().setBoolValue(true);
+            selection = Scene.getPrimarySelection();
+            if (selection != null) {
+                focus_script.execute();
+                    log_info({'status': 'success', 'focus_on': selection.getLabel()});
+
+            } else {
+                log_error({'status': 'failed', 'message': 'Please select a node to focus on!'});
+            }   
+        } 
+    }
+    
+    close_script_utils();
+}
+
+CreateBasicCameraSU();

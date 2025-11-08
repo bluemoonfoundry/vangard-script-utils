@@ -1,0 +1,90 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+function RandomTransformSU(){
+
+
+    sFunctionName = 'RandomTransformSU';
+
+    init_script_utils(sFunctionName);
+
+    oScriptVars = init_script_utils (sFunctionName);
+
+    transform_rotate = oScriptVars['rotate'];
+    transform_xlate  = oScriptVars['translate'];
+    transform_scale  = oScriptVars['scale'];
+
+    low_range = oScriptVars['low-range'];
+    high_range = oScriptVars['high-range'];
+
+
+    // transform_type = App.scriptArgs[0];
+    // low_range      = App.scriptArgs[1];
+    // high_range     = App.scriptArgs[2];
+
+    aSelectedNodes = Scene.getSelectedNodeList();
+    for (var x = 0 ; x < aSelectedNodes.length; x++) {
+        oSelectedNode = aSelectedNodes[x];
+
+        if (transform_rotate) {
+            fRandomValue = getRandomValue(low_range, high_range);
+            transformNodeRotate (oSelectedNode, fRandomValue, Y_AXIS);
+            log_info (
+                {
+                    'request': {
+                        'source': oSelectedNode.getLabel(),
+                        'rotation': fRandomValue,
+                    }
+                }
+            );
+        }
+
+        if (transform_xlate) {
+            fRandomValue = getRandomValue(low_range, high_range);
+            transformNodeTranslate (oSelectedNode, fRandomValue);
+            log_info (
+                {
+                    'request': {
+                        'source': oSelectedNode.getLabel(),
+                        'translate': fRandomValue,
+                    }
+                }
+            );
+        }
+
+         if (transform_scale) {
+            fRandomValue = getRandomValue(low_range, high_range);
+            transformNodeScale (oSelectedNode, fRandomValue);
+            log_info (
+                {
+                    'request': {
+                        'source': oSelectedNode.getLabel(),
+                        'scale': fRandomValue,
+                    }
+                }
+            );
+        }
+    }
+
+    close_script_utils();
+}
+
+RandomTransformSU();
+

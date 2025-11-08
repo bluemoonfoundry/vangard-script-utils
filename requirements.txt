@@ -1,0 +1,4 @@
+PyYAML>=6.0
+fastapi>=0.85.0
+uvicorn[standard]>=0.18.3
+prompt-toolkit>=3.0.0dotenv

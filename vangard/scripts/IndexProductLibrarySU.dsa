@@ -1,0 +1,117 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+var focus_script = null;
+
+function IndexProductLibrarySU() {
+
+    sFunctionName = 'IndexProductLibrarySU';
+
+    oScriptVars = init_script_utils (sFunctionName);
+
+// Get the asset manager
+	var oAssetMgr = App.getAssetMgr();
+	// If the manager was not found
+	if( !oAssetMgr ){
+		// We are done...
+		return;
+	}
+	
+	// Get the top level asset container for products
+	var oProductsTop = oAssetMgr.getProducts();
+	// If we do not have the products container
+	if( !oProductsTop ){
+		// We are done...
+		return;
+	}
+	
+	// Define a variable for whether or not
+	// we only want installed products
+	var bInstalled = true;
+	
+	// Print the container name
+	print( bInstalled ? "Installed" : "All", oProductsTop.getContainerName(), ":" );
+	
+	// Declare working variables
+	var oIntermediate, oProduct;
+	var nProducts;
+    var nTotalProductCount=0;
+    var nInstalledCount=0;
+    var nUinstalledCount=0;
+	
+	// Get the number of intermediate containers; alpha-numeric sorting
+	var nIntermediates = oProductsTop.getNumChildContainers();
+	// Iterate over all intermediate containers
+	for( var i = 0; i < nIntermediates; i += 1 ){
+		// Get the 'current' intermediate container
+		oIntermediate = oProductsTop.getChildContainer( i );
+		// Print the container name
+		print( "+++++", oIntermediate.getContainerName(), "+++++" );
+		
+		// Get the number of product containers within the intermediate
+		nProducts = oIntermediate.getNumChildContainers();
+
+        nTotalProductCount += nProducts;
+        
+		// Iterate over all product containers
+		for( var j = 0; j < nProducts; j += 1 ){
+			// Get the 'current' product container
+			oProduct = oIntermediate.getChildContainer( j );
+			// If we only care about installed products,
+			// and the 'current' one is not
+			if( bInstalled && !oProduct.isInstalled ){
+				nUinstalledCount+=1
+                // print (oProduct.title
+				// + " ("
+				// 	+ oProduct.store
+				// 	+ ", "
+				// 	+ oProduct.token
+				// 	+ ", "
+				// 	+ oProduct.guid
+				// 	+ ", "
+				// 	+ oProduct.id
+				// + ")" );
+				continue;
+			}
+			
+            nInstalledCount+=1;
+			// Print information about the product
+			print(
+				oProduct.title
+				+ " ("
+					+ oProduct.store
+					+ ", "
+					+ oProduct.token
+					+ ", "
+					+ oProduct.guid
+					+ ", "
+					+ oProduct.getMetadataXML()
+				+ ")" );
+		}		
+	}
+
+    App.verbose ("## Extracted " + nTotalProductCount + " products");
+    App.verbose ("## Installed=" + nInstalledCount + ", Uninstalled=" + nUinstalledCount);
+        
+    close_script_utils();
+}
+
+IndexProductLibrarySU();

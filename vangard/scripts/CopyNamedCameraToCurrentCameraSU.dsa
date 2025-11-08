@@ -1,0 +1,79 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+function CopyNamedCameraToCurrentCamera(){
+
+	sFunctionName = "CopyNamedCameraToCurrentCamera";
+	oScriptVars = init_script_utils (sFunctionName);
+
+	oSourceCamera = oScriptVars["source_camera"];
+	oTargetCamera = oScriptVars["target_camera"];
+	
+	if (oSourceCamera == null) {
+		oSourceCamera = getViewportCamera();
+	} else {
+		oSourceCamera = getNamedCamera(oSourceCamera);
+	}
+
+	if (oTargetCamera == null) {
+		oTargetCamera = getViewportCamera();
+	} else {
+		oTargetCamera = getNamedCamera(oTargetCamera);
+	}
+
+	if (oSourceCamera.getLabel() == oTargetCamera.getLabel()) {
+		log_info (
+			{
+				'request': {
+					'source': oSourceCamera.getLabel(),
+					'target': oTargetCamera.getLabel()
+				},
+				'message': "Source and target camera are the same camera. Request ignored."
+			}
+		);
+		return
+	}
+
+	log_info (
+		{
+			'request': {
+				'source': oSourceCamera.getLabel(),
+				'target': oTargetCamera.getLabel()
+			},
+		}
+	);
+
+		  
+    transferCameraProperties (oTargetCamera, oSourceCamera);
+
+	
+    log_info ("CopyNamedCameraToCurrentCamera",
+		{
+			'request': {
+				'source': oSourceCamera.getLabel(),
+				'target': oTargetCamera.getLabel()
+			},
+			'message': 'Copied source camera to target camera' 
+		}
+	);
+}
+
+CopyNamedCameraToCurrentCamera();
+

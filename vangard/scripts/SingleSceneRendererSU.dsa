@@ -1,0 +1,60 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+function SingleSceneRendererSU() {
+
+    sFunctionName = 'SingleSceneRendererSU';
+
+    oScriptVars = init_script_utils (sFunctionName);
+
+    var sInputFile  = oScriptVars['scene_file'];
+    var sOutputFile = oScriptVars['output_file'];
+
+    //var sInputFile = App.scriptArgs[0];
+    //var sFile = App.scriptArgs[1];
+
+    if (sInputFile != null) {
+        // Load the given scene file
+        var oError = Scene.loadScene(sInputFile, DzScene.OpenNew);
+        if (oError.valueOf() != 0x00000000) {
+            log_error ("SingleSceneRendererSU", {'message': 'Could not locate requested scene file: ' + App.scriptArgs[0]});
+			return;	    
+        }
+    }
+
+    // Get the render manager
+    var oRenderMgr = App.getRenderMgr();
+
+    // Set the render options for the icon render
+    var oErrorRender = execLocalToFileRender(oRenderMgr, sOutputFile) 
+
+    if (oErrorRender.valueOf()) {
+
+        log_success_event ('Rendered scene to output file: ' + sOutputFile);
+
+    } else {
+
+        log_failure_event ('SCR: Render Error Code = ' + oErrorRender.valueOf());``
+        
+    }
+}
+
+SingleSceneRendererSU();

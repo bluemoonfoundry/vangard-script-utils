@@ -1,0 +1,61 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+var focus_script = null;
+
+function CopyCurrentSceneFileSU() {
+
+    sFunctionName = 'CopyCurrentSceneFileSU';
+
+    oScriptVars = init_script_utils (sFunctionName);
+    oSaveFile   = oScriptVars['save-file'];
+
+
+    if (Scene.needsSave()) {
+        Scene.saveScene("");
+    }    
+
+    var oCurrentFile = DzFile(Scene.getSceneFileName());
+    var oCurrentFileInfo = DzFileInfo(Scene.getSceneFileName)
+    
+    var oSaveFileInfo = DzFileInfo(oSaveFile);
+
+    if (oSaveFileInfo.isAbsolute() == false) {
+        sCurrentParentPath = oCurrentFileInfo.dir().cleanPath();
+        oSaveFile = sCurrentParentPath + "/" + oSaveFile;
+    } else {
+        if (oSaveFileInfo.dir().exists() == false) {
+            oSaveFileInfo.dir().mkpath()
+        }
+    }
+
+    if (oCurrentFile.copy(oSaveFile)) {
+        log_success_event("File copied to: " + oSaveFile);
+    } else {
+        log_error_event("Failed to copy file to: " + oSaveFile);
+    }
+
+        
+    close_script_utils();
+}
+
+CopyCurrentSceneFileSU();
+

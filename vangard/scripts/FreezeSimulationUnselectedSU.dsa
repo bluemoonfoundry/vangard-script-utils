@@ -1,0 +1,60 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+function FreezeSimulationUnselected() {
+
+	sFunctionName = 'FreezeSimulationUnselected';
+    init_script_utils (sFunctionName);
+
+    selection = Scene.getPrimarySelection();
+    if (selection == null) {
+        log_error(
+		  {
+		      'message': 'Must select a node to keep unfrozen.'
+		  }
+		 );
+    } else {
+
+	aSelectedNodes = getSkeletonNodes();
+	aFrozenNodes = []
+
+	for (var x = 0; x < aSelectedNodes.length; x++) {
+	    oSelectedNode = aSelectedNodes[x];
+		if (oSelectedNode.getLabel() != selection.getLabel()) {
+			oSelectedNode.getSimulationVisibilityControl().setValue(false);
+			aFrozenNodes.push(oSelectedNode.getLabel());
+		} else {
+			oSelectedNode.getSimulationVisibilityControl().setValue(true);
+		}
+	}
+
+	log_info(
+		 {
+		     'selected_node':  selection.getLabel(),
+		     'frozen_nodes': JSON.stringify(aFrozenNodes)
+		 }
+		);
+    }
+
+    close_script_utils();
+}
+
+FreezeSimulationUnselected();

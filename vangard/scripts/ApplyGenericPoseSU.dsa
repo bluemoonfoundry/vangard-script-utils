@@ -1,0 +1,63 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+var focus_script = null;
+
+function ApplyGenericPoseSU() {
+
+    sFunctionName = 'ApplyGenericPoseSU';
+
+    oScriptVars = init_script_utils (sFunctionName);
+
+    sPoseFilePath     = oScriptVars['pose-file']
+    sTargetNodeName   = oScriptVars['target-node']; 
+
+    // Validate that the pose file exists 
+    mark = DzFileInfo(sPoseFilePath);
+
+    if (mark.exists()) {
+        oTargetNode = null;
+
+        if (sTargetNodeName != null) {
+
+            oTargetNode = Scene.findNodeByLabel(sTargetNodeName);
+
+        } else {
+
+            oTargetNode = Scene.getPrimarySelection();
+        }
+
+        if (oTargetNode == null) {
+            log_error({'status': 'failed', 'message':'Could not find requested node [' + sTargetNodeName + ']'});
+            return;
+        }
+
+        Scene.loadScene(sPoseFilePath, DzScene.OpenMerge);
+
+    } else {
+        log_error({'status': 'failed', 'message':'Specified pose file [' + sPoseFilePath + '] does not exist or is not readable.'});
+    }
+    
+    close_script_utils();
+}
+
+ApplyGenericPoseSU();
+

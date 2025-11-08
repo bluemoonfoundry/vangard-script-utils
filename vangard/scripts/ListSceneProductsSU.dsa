@@ -1,0 +1,186 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+list_scene_script_path = includeDir_oFILE.path() + "/ListSceneProductsDaz.dsa";
+
+include (util_path);
+include (list_scene_script_path);
+
+	
+// Define a 'static' variable to collect product data
+var s_oProductsMap = {};
+
+function ListSceneProductsSU() {
+
+	sFunctionName = 'ListSceneProductsSU';
+    init_script_utils (sFunctionName);
+
+    oScriptVars = init_script_utils (sFunctionName);
+
+
+	// Define the psth of the results file
+	var sFile = oScriptVars['target_file']
+	
+	// Define whether or not we want to unify (combine)
+	// the node product result(s) in a single product map
+	var bUnifyProducts = !oScriptVars['node_context'];
+	
+	// Define whether or not to limit which nodes are processed
+	var bSelectedNodes = oScriptVars['selected_only'];
+	
+	// Define whether or not to open the results
+	var bOpenResults = false;
+	
+	// Define whether or not to suppress modal prompting
+	var bSilent = true;
+	
+	// Declare working variables
+	var oNode;
+	var aNodes;
+	
+	// Define how to handle selection
+	var bRoots = true;
+	var bFollowers = true;
+	var bParented = true;
+	var bRecursive = true;
+
+	s_oProductsMap = {};
+	
+	// If we are processing the selected nodes only
+	if( bSelectedNodes ){
+		// Get the primary selection
+		oNode = Scene.getPrimarySelection();
+		// If nothing is selected
+		if( !oNode ){
+			// Define the message
+			sTitle = text( "Selection Error" );
+			sMessage = text( "A node in the scene must be selected to continue." );
+
+			log_error({'status': 'failed', 'message': 'No node selected for selected node only mode'});
+			// We are done..
+			return;
+		}
+		
+		// Get the list of unique selected nodes
+		aNodes = getUniqueNodes( Scene.getSelectedNodeList(),
+				bRoots, bFollowers, bParented, bRecursive );
+	// If we are processing all nodes in the scene
+	} else {
+		// Get the list of unique nodes;
+		// if bRoots is true, bones of a skeleton are
+		// not independently evaluated - they are promoted
+		// to the owning skeleton; if bRoots is false, all
+		// nodes in the scene are independently considered
+		aNodes = getUniqueNodes( Scene.getNodeList(),
+				bRoots, false, false, false );
+	}
+	
+	// Let the user know we are busy
+	setBusyCursor();
+	
+	// Declare working variable
+	var oNodeInfo;
+	var sData;
+	
+	// Get the number of nodes
+	var nNodes = aNodes.length;
+	
+	// Define an array for capturing non-unified results; pre-size
+	var aNonUnified = bUnifyProducts ? new Array( nNodes ) : [];
+	
+	// Initialize
+	var oNodeGuidMap = {};
+	
+	// Iterate over the root nodes
+	for( var i = 0; i < nNodes; i += 1 ){
+		// Get the 'current' node
+		oNode = aNodes[ i ];
+		
+		// Get the product information for the node
+		oNodeInfo = getNodeProductsMap( oNode, bUnifyProducts );
+		
+		// If we are not unifying results
+		if( !bUnifyProducts ){
+			// Capture the info
+			aNonUnified[i] = oNodeInfo;
+			
+			// Next!!
+			continue;
+		}
+		
+		// Get the list of product GUIDs
+		oNodeGuidMap[ oNode.elementID ] = {
+				"label" : getContextualNodeLabel( oNode ),
+				"guids" : oNodeInfo
+			};
+	}
+	
+	// Declare working variable
+	var oUnifiedMap;
+	
+	// If we are unifying results
+	if( bUnifyProducts ){
+		// Get the unified products map
+		oUnifiedMap = getUnifiedProductsMap( oNodeGuidMap );
+		
+		// Get a stringified version of the info
+		sData = getStringified( getValues( oUnifiedMap ) );
+	// If we are not unifying results
+	} else {
+		// Remove any empty entries
+		aNonUnified = aNonUnified.filter( Boolean );
+		
+		// Get a stringified version of the info
+		sData = getStringified( aNonUnified );
+	}
+	
+	// Declare working variable
+	var sError;
+	
+	// If we have a path for a file to write to
+	if( !sFile.isEmpty() ){
+		// Write the data to file
+		sError = writeToFile( sFile, sData, DzFile.WriteOnly );
+		
+		// If we do not have any errors
+		if( sError.isEmpty() ){
+			log_success_event ('Wrote output result to file: ' + sFile);
+		} else if( !bSilent && App.showPrompts() ){
+			log_failure_event('Error writing output file: ' + sError);
+		}
+
+	// If we are not writing to file
+	} else {
+		// Provide feedback
+		print( sData );
+		
+		// If we are opening the result
+		if( bOpenResults ){
+			// Cause the log file to be shown
+			openApplicationLog();
+		}
+	}
+	
+	// Let the user know we are done
+	clearBusyCursor();
+
+}
+
+ListSceneProductsSU();

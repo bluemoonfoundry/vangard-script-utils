@@ -1,0 +1,106 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+var focus_script = null;
+
+function execBatchRenderScene(sSceneFile, render_config, render_target, output_base_path) {
+
+    if (sSceneFile != null) {
+
+        // Load the given scene file
+        oError = loadScene(sSceneFile, DzScene.OpenNew);
+        
+        if (oError.valueOf() == 0) {
+            log_success_event ('Loaded scene file ' + sSceneFile);
+        } else {
+            log_error (
+                {
+                    'status':'failed', 'message': 
+                    'Failed to load requested scene file: ' + sSceneFile + ':' + oError + ":" + getErrorMessage(oError)
+                }
+            );
+            return;
+        } 
+        log_success_event ("Rendering current scene.")
+    }
+    
+    execBatchRender(render_config, render_target, output_base_path );
+    
+}
+
+function BatchRenderSU() {
+
+    sFunctionName = 'BatchRenderSU';
+
+    oScriptVars = init_script_utils (sFunctionName);
+
+    
+    // Identify the type of batch render we're interested in 
+    scene_file_list    = oScriptVars['scene_files'];
+    render_target      = oScriptVars['target'];
+    output_base_path   = oScriptVars['output-path'];
+    iray_config        = {}
+
+    if (render_target == 'iray-server-bridge') {
+        if (oScriptVars['iray_config_file'] != undefined) {
+            iray_config = readFromFileAsJson(oScriptVars['iray_config_file']);
+        }
+    }
+
+    aIrayVariables = ["iray_server', 'iray_protocol", "iray_port", "iray_user", "iray_password"]
+    for (var x = 0; x < aIrayVariables.length; x++) {
+        test = oScriptVars[aIrayVariables[x]];
+        if (test != null) {
+            iray_config[aIrayVariables[x]] = test;
+        }
+    }
+
+    log_info (
+        {
+            'iray_config': JSON.stringify(iray_config)
+        }
+    )
+
+
+    render_config = oScriptVars;
+    render_config['iray_config'] = iray_config
+
+    extracted_scene_list = scene_file_list['scene_files'];
+
+    log_info (
+        {
+            'scene_files': extracted_scene_list
+        }
+    );
+
+    if (extracted_scene_list.length == 0) {
+	    execBatchRenderScene(null, render_config, render_target, output_base_path);
+    } else {
+        for (var y = 0; y < extracted_scene_list.length; y++) {
+            scene_file = extracted_scene_list[y];
+            execBatchRenderScene(scene_file, render_config, render_target, output_base_path);
+        }
+    }
+    close_script_utils();
+
+}
+
+BatchRenderSU();

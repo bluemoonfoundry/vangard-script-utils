@@ -1,0 +1,61 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+ 
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+var focus_script = null;
+
+function DropObjectSU() {
+
+    sFunctionName = 'DropObjectSU';
+
+    oScriptVars = init_script_utils (sFunctionName);
+
+    sSourceNode = oScriptVars['source_node'];
+    sTargetNode = oScriptVars['target_node'];
+
+    oSourceNode = Scene.findNodeByLabel(sSourceNode);
+    oTargetNode = Scene.findNodeByLabel(sTargetNode);
+
+    if (oSourceNode == null || oSourceNode == undefined) {
+        log_failure_event("Could not locate source node with label: " + sSourceNode);
+        return;
+    }
+
+    if (oTargetNode == null || oTargetNode == undefined) {
+        log_failure_event("Could not locate target node with label: " + sTargetNode);
+        return;
+    }
+
+
+    var oSourceBoundingBox = oSourceNode.getWSBoundingBox();
+    var oTargetBoundingBox = oTargetNode.getWSBoundingBox()
+
+    // Calculate the new position for the top object
+    var bottomTopY = oTargetBoundingBox.maxY;
+    var topHeight = oSourceBoundingBox.maxY - oSourceBoundingBox.minY;
+    var newTopY = bottomTopY + topHeight / 2;
+
+    dropNodeToNode(oSourceNode, "y", newTopY);
+        
+    close_script_utils();
+}
+
+DropObjectSU();
+
