@@ -1,23 +1,29 @@
 import yaml
 import html
 
-def _generate_args_html_table(arguments):
+def _generate_args_html_details(arguments, command_name):
     """
-    Generates a complete HTML table string for a list of arguments.
-    This string is designed to be embedded within a Markdown table cell.
+    Generates a collapsible HTML <details> block containing an arguments table.
     """
     if not arguments:
         return "No arguments."
 
-    # Start the HTML table.
-    # Using inline styles for basic formatting that works well in Markdown renderers.
-    html_table = '<table>'
-    html_table += '<thead><tr><th>Arg Name</th><th>Description</th><th>Type</th><th>Optional</th></tr></thead>'
-    html_table += '<tbody>'
+    arg_count = len(arguments)
+    # The <summary> is the part that is always visible.
+    summary_text = f"View {arg_count} Argument{'s' if arg_count > 1 else ''}"
+    
+    # Start the <details> block. The table will be hidden inside it.
+    details_block = f'<details><summary>{summary_text}</summary>'
+    
+    # Add some styling for better readability inside the collapsible area.
+    details_block += '<div style="padding-left: 16px; margin-top: 8px;">'
 
-    # Process each argument and create a table row
+    # Build the HTML table for the arguments
+    details_block += '<table>'
+    details_block += '<thead><tr><th>Arg Name</th><th>Description</th><th>Type</th><th>Optional</th></tr></thead>'
+    details_block += '<tbody>'
+
     for arg in arguments:
-        # It is CRITICAL to escape user-provided content for HTML
         arg_names = html.escape(", ".join(arg.get('names', [])))
         arg_desc = html.escape(arg.get('help', ''))
 
@@ -29,19 +35,15 @@ def _generate_args_html_table(arguments):
 
         is_optional = "No" if arg.get('required', False) else "Yes"
 
-        # Add the HTML row
-        html_table += f'<tr><td><code>{arg_names}</code></td><td>{arg_desc}</td><td>{arg_type}</td><td>{is_optional}</td></tr>'
+        details_block += f'<tr><td><code>{arg_names}</code></td><td>{arg_desc}</td><td>{arg_type}</td><td>{is_optional}</td></tr>'
 
-    html_table += '</tbody></table>'
-    return html_table
+    details_block += '</tbody></table></div></details>'
+    return details_block
 
 def generate_markdown_table(yaml_file_path, output_md_path):
     """
-    Reads a YAML file defining commands and generates a Markdown table.
-
-    Args:
-        yaml_file_path (str): The path to the input YAML file.
-        output_md_path (str): The path to the output Markdown file.
+    Reads a YAML file defining commands and generates a Markdown table
+    with collapsible sections for arguments.
     """
     try:
         with open(yaml_file_path, 'r') as f:
@@ -54,26 +56,19 @@ def generate_markdown_table(yaml_file_path, output_md_path):
         return
 
     md_content = "# Command Line Utility Reference\n\n"
-
-    # Main table header
     md_content += "| Command Name | Description | Arguments |\n"
     md_content += "|---|---|---|\n"
 
-    # Process each command
     for command in data.get('commands', []):
-        # Sanitize text for the main Markdown table cells
-        command_name = f"`{command.get('name', 'N/A').replace('|', '\\|')}`"
-        # Remove newlines from description to keep the main table row on one line
+        command_name_raw = command.get('name', 'N/A')
+        command_name_md = f"`{command_name_raw.replace('|', '\\|')}`"
         command_desc = command.get('help', '').replace('|', '\\|').replace('\n', ' ')
 
-        # Generate the arguments table as a single HTML string
-        arguments_html = _generate_args_html_table(command.get('arguments'))
+        # Generate the collapsible <details> block for the arguments
+        arguments_details = _generate_args_html_details(command.get('arguments'), command_name_raw)
         
-        # Add the complete row to the main table. The HTML string can contain newlines,
-        # which is fine as long as the row itself starts and ends with a pipe.
-        md_content += f"| {command_name} | {command_desc} | {arguments_html} |\n"
+        md_content += f"| {command_name_md} | {command_desc} | {arguments_details} |\n"
 
-    # Write the final Markdown content to the output file
     with open(output_md_path, 'w', encoding='utf-8') as f:
         f.write(md_content)
     print(f"Successfully generated Markdown documentation at '{output_md_path}'")
