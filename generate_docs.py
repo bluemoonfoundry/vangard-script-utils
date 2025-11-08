@@ -1,13 +1,47 @@
 import yaml
-import html
 
-def generate_html_table(yaml_file_path, output_html_path):
+def _generate_args_markdown(arguments):
     """
-    Reads a YAML file defining commands and generates an HTML table.
+    Generates a Markdown table string for a list of arguments.
+    This string is designed to be embedded within a cell of another table.
+    """
+    if not arguments:
+        return "No arguments."
+
+    # Header for the arguments table
+    # Using <br> for line breaks is necessary for multi-line content in a single table cell.
+    args_md = "| Arg Name | Description | Type | Optional |<br>"
+    args_md += "|---|---|---|---|<br>"
+
+    # Process each argument
+    for arg in arguments:
+        # Sanitize content for Markdown table (escape the pipe character)
+        arg_names = ", ".join(arg.get('names', []))
+        arg_names = f"`{arg_names.replace('|', '\\|')}`"
+        
+        arg_desc = arg.get('help', '').replace('|', '\\|').replace('\n', ' ')
+
+        if arg.get('action') == 'store_true':
+            arg_type = 'flag (boolean)'
+        else:
+            arg_type = arg.get('type', 'string')
+        arg_type = arg_type.replace('|', '\\|')
+
+        is_optional = "No" if arg.get('required', False) else "Yes"
+
+        # Add the row to the table string
+        args_md += f"| {arg_names} | {arg_desc} | {arg_type} | {is_optional} |<br>"
+
+    # Return the complete string, removing the final <br>
+    return args_md.rstrip('<br>')
+
+def generate_markdown_table(yaml_file_path, output_md_path):
+    """
+    Reads a YAML file defining commands and generates a Markdown table.
 
     Args:
         yaml_file_path (str): The path to the input YAML file.
-        output_html_path (str): The path to the output HTML file.
+        output_md_path (str): The path to the output Markdown file.
     """
     try:
         with open(yaml_file_path, 'r') as f:
@@ -19,146 +53,32 @@ def generate_html_table(yaml_file_path, output_html_path):
         print(f"Error parsing YAML file: {e}")
         return
 
-    # Start building the HTML string with updated styling
-    html_content = """
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-        <meta charset="UTF-g">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Command Reference</title>
-        <style>
-            body { font-family: sans-serif; margin: 2em; }
-            h1 { color: #333; }
-            /* --- UPDATED STYLES FOR THE MAIN TABLE --- */
-            table {
-                border-collapse: collapse;
-                width: 100%;
-                box-shadow: 0 2px 3px #ccc;
-                table-layout: fixed; /* Important for fixed column widths */
-            }
-            th, td {
-                border: 1px solid #ddd;
-                padding: 12px;
-                text-align: left;
-                vertical-align: top;
-                overflow-wrap: break-word; /* Handle long content */
-            }
-            /* Define widths for the main table columns */
-            table > thead > tr > th:nth-child(1),
-            table > tbody > tr > td:nth-child(1) { width: 20%; } /* Command Name */
-            table > thead > tr > th:nth-child(2),
-            table > tbody > tr > td:nth-child(2) { width: 50%; } /* Description */
-            table > thead > tr > th:nth-child(3),
-            table > tbody > tr > td:nth-child(3) { width: 30%; } /* Arguments */
+    # Start building the Markdown string
+    md_content = "# Command Line Utility Reference\n\n"
 
-            th { background-color: #f2f2f2; font-weight: bold; }
-            tr:nth-child(even) { background-color: #f9f9f9; }
-            tr:hover { background-color: #f1f1f1; }
-            code { background-color: #eee; padding: 2px 4px; border-radius: 4px; }
-            .command-name { font-weight: bold; font-size: 1.1em; }
+    # Main table header
+    md_content += "| Command Name | Description | Arguments |\n"
+    md_content += "|--------------|-------------|-----------|\n"
 
-            /* Styles for the nested arguments table */
-            .args-table {
-                width: 100%;
-                margin: 0;
-                box-shadow: none;
-                table-layout: fixed;
-            }
-            .args-table th, .args-table td {
-                padding: 8px;
-                border: 1px solid #e0e0e0;
-                overflow-wrap: break-word;
-            }
-            .args-table th { background-color: #fafafa; }
-            
-            /* Define the width for each nested table column */
-            .args-table th:nth-child(1), .args-table td:nth-child(1) { width: 25%; } /* Arg Name */
-            .args-table th:nth-child(2), .args-table td:nth-child(2) { width: 45%; } /* Description */
-            .args-table th:nth-child(3), .args-table td:nth-child(3) { width: 15%; } /* Type */
-            .args-table th:nth-child(4), .args-table td:nth-child(4) { width: 15%; } /* Optional */
-        </style>
-    </head>
-    <body>
-        <h1>Command Line Utility Reference</h1>
-        <table>
-            <thead>
-                <tr>
-                    <th>Command Name</th>
-                    <th>Description</th>
-                    <th>Arguments</th>
-                </tr>
-            </thead>
-            <tbody>
-    """
-
-    # --- NO CHANGES TO THE LOGIC BELOW THIS POINT ---
-    
-    # Process each command from the YAML file
+    # Process each command
     for command in data.get('commands', []):
-        command_name = html.escape(command.get('name', 'N/A'))
-        command_desc = html.escape(command.get('help', ''))
+        # Sanitize command name and description for the main table
+        command_name = f"`{command.get('name', 'N/A').replace('|', '\\|')}`"
+        command_desc = command.get('help', '').replace('|', '\\|').replace('\n', ' ')
 
-        html_content += f"""
-                <tr>
-                    <td class="command-name"><code>{command_name}</code></td>
-                    <td>{command_desc}</td>
-                    <td>
-        """
+        # Generate the arguments table as a single, multi-line string
+        arguments_md = _generate_args_markdown(command.get('arguments'))
+        
+        # Add the complete row to the main table
+        md_content += f"| {command_name} | {command_desc} | {arguments_md} |\n"
 
-        # Build the embedded table for arguments
-        if 'arguments' in command and command['arguments']:
-            html_content += """
-                        <table class="args-table">
-                            <thead>
-                                <tr>
-                                    <th>Arg Name</th>
-                                    <th>Description</th>
-                                    <th>Type</th>
-                                    <th>Optional</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            """
-            for arg in command['arguments']:
-                arg_names = ", ".join(arg.get('names', []))
-                arg_desc = arg.get('help', '')
-                if arg.get('action') == 'store_true':
-                    arg_type = 'flag (boolean)'
-                else:
-                    arg_type = arg.get('type', 'string')
-                is_optional = "No" if arg.get('required', False) else "Yes"
-                arg_names = html.escape(arg_names)
-                arg_desc = html.escape(arg_desc)
-                arg_type = html.escape(arg_type)
-                
-                html_content += f"""
-                                <tr>
-                                    <td><code>{arg_names}</code></td>
-                                    <td>{arg_desc}</td>
-                                    <td>{arg_type}</td>
-                                    <td>{is_optional}</td>
-                                </tr>
-                """
-            html_content += "</tbody></table>"
-        else:
-            html_content += "No arguments."
+    # Write the final Markdown content to the output file
+    with open(output_md_path, 'w') as f:
+        f.write(md_content)
+    print(f"Successfully generated Markdown documentation at '{output_md_path}'")
 
-        html_content += "</td></tr>"
-
-    html_content += """
-            </tbody>
-        </table>
-    </body>
-    </html>
-    """
-
-    with open(output_html_path, 'w') as f:
-        f.write(html_content)
-    print(f"Successfully generated HTML documentation at '{output_html_path}'")
-
-# --- Main execution block with UPDATED filenames ---
+# --- Main execution block ---
 if __name__ == "__main__":
     YAML_INPUT_FILE = "config.yaml"
-    HTML_OUTPUT_FILE = "config_reference.html"
-    generate_html_table(YAML_INPUT_FILE, HTML_OUTPUT_FILE)
+    MD_OUTPUT_FILE = "config_reference.md"
+    generate_markdown_table(YAML_INPUT_FILE, MD_OUTPUT_FILE)
