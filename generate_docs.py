@@ -8,10 +8,9 @@ def _generate_args_markdown(arguments):
     if not arguments:
         return "No arguments."
 
-    # Header for the arguments table
-    # Using <br> for line breaks is necessary for multi-line content in a single table cell.
-    args_md = "| Arg Name | Description | Type | Optional |<br>"
-    args_md += "|---|---|---|---|<br>"
+    # CORRECTED: Header for the arguments table, without leading/trailing pipes.
+    args_md = "Arg Name | Description | Type | Optional<br>"
+    args_md += "--- | --- | --- | ---<br>"
 
     # Process each argument
     for arg in arguments:
@@ -19,6 +18,7 @@ def _generate_args_markdown(arguments):
         arg_names = ", ".join(arg.get('names', []))
         arg_names = f"`{arg_names.replace('|', '\\|')}`"
         
+        # Also remove newlines from description to keep the row clean
         arg_desc = arg.get('help', '').replace('|', '\\|').replace('\n', ' ')
 
         if arg.get('action') == 'store_true':
@@ -29,8 +29,8 @@ def _generate_args_markdown(arguments):
 
         is_optional = "No" if arg.get('required', False) else "Yes"
 
-        # Add the row to the table string
-        args_md += f"| {arg_names} | {arg_desc} | {arg_type} | {is_optional} |<br>"
+        # CORRECTED: The row string no longer starts or ends with a pipe.
+        args_md += f"{arg_names} | {arg_desc} | {arg_type} | {is_optional}<br>"
 
     # Return the complete string, removing the final <br>
     return args_md.rstrip('<br>')
@@ -58,7 +58,7 @@ def generate_markdown_table(yaml_file_path, output_md_path):
 
     # Main table header
     md_content += "| Command Name | Description | Arguments |\n"
-    md_content += "|--------------|-------------|-----------|\n"
+    md_content += "|---|---|---|\n" # Corrected separator line for 3 columns
 
     # Process each command
     for command in data.get('commands', []):
