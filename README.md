@@ -41,9 +41,9 @@ A powerful, configuration-driven command-line utility system that provides stand
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
-│                   main.py (Entry Point)                      │
-│          Routes to: cli.py, interactive.py,                  │
-│                   server.py, or gui.py                       │
+│              vangard/main.py (Entry Point)                   │
+│       Routes to: vangard/cli.py, vangard/interactive.py,     │
+│                vangard/server.py, or vangard/gui.py          │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
@@ -116,16 +116,25 @@ A powerful, configuration-driven command-line utility system that provides stand
 
 ## Installation
 
+### Quick Install (Recommended)
+
 1. **Clone the repository**:
    ```bash
    git clone https://github.com/bluemoonfoundry/vangard-script-utils.git
    cd vangard-script-utils
    ```
 
-2. **Install dependencies**:
+2. **Install the package** (editable mode for development):
    ```bash
-   pip install -r requirements.txt
+   pip install -e .
    ```
+
+   This installs the package and creates console script commands:
+   - `vangard` - Multi-mode launcher
+   - `vangard-cli` - Direct CLI access
+   - `vangard-interactive` - Interactive shell
+   - `vangard-server` - FastAPI server
+   - `vangard-gui` - GUI interface
 
 3. **Set up environment variables**:
    Create a `.env` file in the root directory:
@@ -138,6 +147,17 @@ A powerful, configuration-driven command-line utility system that provides stand
      - Windows: `C:/Program Files/DAZ 3D/DAZStudio4/DAZStudio.exe`
      - macOS: `/Applications/DAZ 3D/DAZStudio4 64-bit/DAZStudio.app/Contents/MacOS/DAZStudio`
    - `DAZ_ARGS`: Optional additional arguments to pass to DAZ Studio
+
+### Alternative: Manual Installation
+
+If you prefer not to install the package:
+
+```bash
+pip install -r requirements.txt
+python -m vangard.main [mode] [arguments]
+```
+
+For detailed installation instructions, see [INSTALLATION.md](INSTALLATION.md).
 
 ## Configuration
 
@@ -167,37 +187,60 @@ commands:
 
 ## Usage
 
+After installation, you can use the package in two ways:
+
+### Option 1: Console Scripts (Recommended)
+
+Use the installed console scripts directly:
+
+```bash
+vangard-cli [command] [arguments]
+# or
+vangard cli [command] [arguments]
+```
+
+### Option 2: Python Module
+
+Run as a Python module:
+
+```bash
+python -m vangard.cli [command] [arguments]
+# or
+python -m vangard.main cli [command] [arguments]
+```
+
+---
+
 ### CLI Mode
 
 Execute single commands from the command line:
-
-```bash
-python main.py cli [command] [arguments]
-```
 
 **Examples**:
 
 ```bash
 # Load a scene file
-python main.py cli load-scene /path/to/scene.duf
+vangard-cli load-scene /path/to/scene.duf
 
 # Load and merge a scene
-python main.py cli load-scene /path/to/scene.duf --merge
+vangard-cli load-scene /path/to/scene.duf --merge
 
 # Render current scene
-python main.py cli scene-render -o /path/to/output.png
+vangard-cli scene-render -o /path/to/output.png
 
 # Batch render multiple scenes
-python main.py cli batch-render -s "/path/to/scenes/*.duf" -o /output/dir
+vangard-cli batch-render -s "/path/to/scenes/*.duf" -o /output/dir
 
 # Create a camera
-python main.py cli create-cam "MyCamera" "PerspectiveCamera" --focus
+vangard-cli create-cam "MyCamera" "PerspectiveCamera" --focus
 
 # Save scene with incremented filename
-python main.py cli inc-scene
+vangard-cli inc-scene
 
 # Get help for a specific command
-python main.py cli help batch-render
+vangard-cli help batch-render
+
+# Or using the multi-mode launcher
+vangard cli load-scene /path/to/scene.duf
 ```
 
 ### Interactive Mode
@@ -205,7 +248,11 @@ python main.py cli help batch-render
 Launch an interactive shell with command history and auto-completion:
 
 ```bash
-python main.py interactive
+vangard-interactive
+# or
+vangard interactive
+# or
+python -m vangard.interactive
 ```
 
 Once in the shell:
@@ -228,7 +275,11 @@ vangard-cli> exit
 Run as a FastAPI REST API server:
 
 ```bash
-python main.py server
+vangard-server
+# or
+vangard server
+# or
+python -m vangard.server
 ```
 
 The server starts at `http://127.0.0.1:8000` with:
@@ -257,7 +308,11 @@ All commands are automatically exposed as REST endpoints based on `config.yaml`.
 Launch a simple graphical interface:
 
 ```bash
-python main.py gui
+vangard-gui
+# or
+vangard gui
+# or
+python -m vangard.gui
 ```
 
 The GUI provides a user-friendly interface for executing commands without using the command line.
@@ -427,19 +482,22 @@ python main.py server
 
 ```
 vangard-script-utils/
-├── main.py                 # Entry point, mode selection
-├── cli.py                  # CLI interface
-├── interactive.py          # Interactive shell
-├── server.py               # FastAPI server
-├── gui.py                  # GUI interface
+├── setup.py                # Package setup configuration
+├── pyproject.toml          # Modern packaging configuration
+├── MANIFEST.in             # Distribution manifest
 ├── config.yaml             # Command definitions
-├── generate_docs.py        # Documentation generator
 ├── requirements.txt        # Python dependencies
+├── pytest.ini              # Test configuration
 ├── core/
 │   ├── __init__.py
 │   └── framework.py        # Core framework engine
-├── vangard/
-│   ├── __init__.py
+├── vangard/                # Main package
+│   ├── __init__.py         # Package version and exports
+│   ├── main.py             # Multi-mode entry point
+│   ├── cli.py              # CLI interface
+│   ├── interactive.py      # Interactive shell
+│   ├── server.py           # FastAPI server
+│   ├── gui.py              # GUI interface
 │   ├── commands/           # Python command classes
 │   │   ├── BaseCommand.py  # Abstract base class
 │   │   ├── LoadMergeSU.py
@@ -450,9 +508,18 @@ vangard-script-utils/
 │       ├── LoadMergeSU.dsa
 │       ├── BatchRenderSU.dsa
 │       └── ...
-├── test/                   # Test files and assets
+├── tests/                  # Test suite (164 tests)
+│   ├── conftest.py         # Test fixtures
+│   ├── commands/           # Command tests (122 tests)
+│   ├── unit/               # Unit tests (39 tests)
+│   └── integration/        # Integration tests (8 tests)
+├── .github/
+│   └── workflows/
+│       └── tests.yml       # CI/CD workflow
 ├── ARGS.md                 # Auto-generated command reference
 ├── CLAUDE.md               # AI assistant guidance
+├── INSTALLATION.md         # Installation guide
+├── TESTING_STRATEGY.md     # Testing documentation
 └── README.md               # This file
 ```
 
@@ -466,11 +533,22 @@ vangard-script-utils/
 
 ### Running Tests
 
-Test files are located in the `test/` directory. Run tests to verify commands work correctly:
+The project includes a comprehensive test suite with 164 tests. Run tests using pytest:
 
 ```bash
-# Example: Test batch rendering with test scene
-python main.py cli batch-render -s "test/CubeTestScene.duf" -o test/
+# Run all tests
+python -m pytest tests/
+
+# Run with verbose output
+python -m pytest tests/ -v
+
+# Run specific test categories
+python -m pytest tests/commands/      # Command tests
+python -m pytest tests/unit/          # Unit tests
+python -m pytest tests/integration/   # Integration tests
+
+# Run with coverage
+python -m pytest tests/ --cov=vangard --cov=core --cov-report=html
 ```
 
 ### Code Conventions
