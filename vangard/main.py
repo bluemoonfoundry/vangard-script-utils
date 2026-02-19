@@ -3,10 +3,10 @@ import sys
 import argparse
 
 # We need to import the main functions from our interface modules
-import cli
-import interactive
-import server
-import gui
+from vangard import cli
+from vangard import interactive
+from vangard import server
+from vangard import gui
 
 def main():
     parser = argparse.ArgumentParser(

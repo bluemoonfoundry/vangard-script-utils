@@ -1,0 +1,19 @@
+# Include configuration and documentation files
+include README.md
+include CLAUDE.md
+include LICENSE
+include requirements.txt
+include config.yaml
+include pytest.ini
+
+# Include DAZ Studio scripts
+recursive-include vangard/scripts *.dsa
+
+# Include test files (for source distributions)
+recursive-include tests *.py
+
+# Exclude compiled Python files
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude *.pyo
+global-exclude .DS_Store

@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vangard-script-utils"
+version = "0.1.0"
+description = "A command-line interface and automation toolkit for DAZ Studio"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Vangard Team"}
+]
+keywords = ["daz-studio", "automation", "cli", "3d-graphics"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "PyYAML>=6.0",
+    "fastapi>=0.85.0",
+    "uvicorn[standard]>=0.18.3",
+    "prompt-toolkit>=3.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.10.0",
+]
+
+[project.scripts]
+vangard = "vangard.main:main"
+vangard-cli = "vangard.cli:main"
+vangard-interactive = "vangard.interactive:main"
+vangard-server = "vangard.server:main"
+vangard-gui = "vangard.gui:main"
+
+[project.urls]
+Homepage = "https://github.com/yourusername/vangard-script-utils"
+Documentation = "https://github.com/yourusername/vangard-script-utils"
+Repository = "https://github.com/yourusername/vangard-script-utils"
+"Bug Tracker" = "https://github.com/yourusername/vangard-script-utils/issues"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["vangard", "core"]
+omit = ["*/tests/*", "*/test_*.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]

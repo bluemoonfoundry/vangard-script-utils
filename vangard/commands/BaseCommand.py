@@ -41,9 +41,10 @@ class BaseCommand(ABC):
         """
         if self.parser is None:
             raise ValueError("Parser is not set for this command.")
-        
+
         if args is not None:
             args_dict = self.to_dict(args)
+            self.script_vars = args_dict  # Store for subclass access
             self.exec_default_script(args_dict)
     
     def exec_default_script(self, args):

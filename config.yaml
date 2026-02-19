@@ -34,7 +34,7 @@ commands:
         help: "Settings for the action as a series of key=value pairs separated by commas"
 
   - name: "saveas"
-    class: "vangard.commands.CopyCurrentSceneFileSU.CopyCurrentSceneFileSU"
+    class: "vangard.commands.CopyCurerentSceneFileSU.CopyCurrentSceneFileSU"
     help: "Make a copy of the current scene file to the specified location, simulating a Save As... function"
     arguments:
       - names: ["save_file"]

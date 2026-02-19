@@ -40,15 +40,13 @@ class ListSceneProductsSU(BaseCommand):
 
 
     def process(self, args):
-        super().process(args)
-
-        if 'target_file' in self.script_vars:
-            target_file = self.script_vars['target_file']
+        if 'target_file' in vars(args):
+            target_file = args.target_file
         else:
             target_file = "C:/temp/products.json"
 
-        self.process_product_list(target_file)
-        
-        self.exec_default_script()
-
         self.process_product_list_reset(target_file)
+
+        super().process(args)
+
+        self.process_product_list(target_file)
