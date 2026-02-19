@@ -9,6 +9,9 @@ include pytest.ini
 # Include DAZ Studio scripts
 recursive-include vangard/scripts *.dsa
 
+# Include Pro mode static files
+recursive-include vangard/static *.html *.css *.js *.png *.jpg *.svg *.ico
+
 # Include test files (for source distributions)
 recursive-include tests *.py
 

@@ -46,6 +46,7 @@ vangard-cli = "vangard.cli:main"
 vangard-interactive = "vangard.interactive:main"
 vangard-server = "vangard.server:main"
 vangard-gui = "vangard.gui:main"
+vangard-pro = "vangard.pro:main"
 
 [project.urls]
 Homepage = "https://github.com/yourusername/vangard-script-utils"
