@@ -59,7 +59,9 @@ def generate_markdown_table(yaml_file_path, output_md_path):
     # --- UPDATED: Iterate over the newly sorted list ---
     for command in sorted_commands:
         command_name_raw = command.get('name', 'N/A')
-        command_name_md = f"`{command_name_raw.replace('|', '\\|')}`"
+        # Escape pipe characters (can't use backslash in f-string expression)
+        command_name_escaped = command_name_raw.replace('|', '\\|')
+        command_name_md = f"`{command_name_escaped}`"
         command_desc = command.get('help', '').replace('|', '\\|').replace('\n', ' ')
 
         arguments_details = _generate_args_html_details(command.get('arguments'), command_name_raw)
