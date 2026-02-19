@@ -211,3 +211,6 @@ __marimo__/
 
 # Temporary scripts
 fix_tests.py
+
+# Interactive shell history
+.cli_history
