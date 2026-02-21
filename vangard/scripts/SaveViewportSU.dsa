@@ -1,0 +1,102 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+var focus_script = null;
+
+function SaveViewportSU() {
+
+    sFunctionName = 'SaveViewportSU';
+
+    oScriptVars = init_script_utils (sFunctionName);
+    sViewCam    = oScriptVars['view_camera'];
+    sFileRoot   = oScriptVars['save_file'];
+    sFileExt    = oScriptVars['image_format'];
+    iFrameStart = oScriptVars['frame_start'];
+    oFrameEnd   = oScriptVars['frame_end'];
+
+
+    if( MainWindow ){
+
+
+
+        iCurrentFrame = Scene.getFrame();
+
+        // Get the active viewport
+        var oViewportMgr    = MainWindow.getViewportMgr();
+        var oViewport       = oViewportMgr.getActiveViewport().get3DViewport();
+        var oViewportCamera = oViewport.getCamera();
+
+
+        if (sViewCam != null) {
+              log_info (
+			{
+				'request': {
+                    'view_cam': sViewCam,
+				},
+				'message': "Shift camera for viewport to selected camera."
+			}
+		    );
+            oViewport.setCameraByName(sViewCam);
+        }
+        if (iFrameStart == null) {
+            iFrameStart = Scene.getFrame();
+        }
+        if (oFrameEnd == null) {
+            oFrameEnd = iFrameStart+1
+        }
+
+        for (var x = iFrameStart; x < oFrameEnd; x++) {
+
+            Scene.setFrame(x);
+
+            // Capture the contents of the active viewport
+            var oImg = oViewport.captureImage();
+        
+            // Get the image manager
+            var oImgMgr = App.getImageMgr();
+        
+            var sFilePath = String("%1_%2.%3").arg(sFileRoot).arg(x).arg(sFileExt);
+	
+            log_info (
+			{
+				'request': {
+                    'frame': x,
+					'path': sFilePath
+				},
+				'message': "Wrote viewport image to file."
+			}
+		    );
+
+            // Save the image to a file
+            oImgMgr.saveImage( String(sFilePath) , oImg );
+            
+        }
+
+        
+        oViewport.setCamera( oViewportCamera );
+        Scene.setFrame(iCurrentFrame);
+    }
+
+    close_script_utils();
+}
+
+SaveViewportSU();
+

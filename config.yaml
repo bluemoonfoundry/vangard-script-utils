@@ -388,3 +388,78 @@ commands:
         type: "str"
         default: null
         help: "For target iray-server the configuration options file to use for iRay server/master configuration. Values in this file can be overridden by additional command line arguments"
+
+  - name: "save-viewport"
+    class: "vangard.commands.SaveViewportSU.SaveViewportSU"
+    help: "Capture and save the active viewport to image files for a range of frames"
+    arguments:
+      - names: ["-f", "--save-file"]
+        dest: "save_file"
+        type: "str"
+        required: true
+        help: "Output file path root (without extension). Frame number and extension will be appended."
+      - names: ["-c", "--view-camera"]
+        dest: "view_camera"
+        type: "str"
+        default: null
+        help: "Name of the camera to set in the viewport before capturing. If not specified, uses the current viewport camera."
+      - names: ["-e", "--image-format"]
+        dest: "image_format"
+        type: "str"
+        default: "png"
+        help: "Image file format/extension (e.g. png, jpg). Default is png."
+      - names: ["-s", "--frame-start"]
+        dest: "frame_start"
+        type: "int"
+        default: null
+        help: "First frame to capture. Defaults to the current scene frame."
+      - names: ["-n", "--frame-end"]
+        dest: "frame_end"
+        type: "int"
+        default: null
+        help: "End frame (exclusive) for capture range. Defaults to frame_start + 1 (single frame)."
+
+  - name: "face-render-lora"
+    class: "vangard.commands.FaceRenderLoraSU.FaceRenderLoraSU"
+    help: "Render a series of orbital camera angles around a figure's face for LoRA training image generation"
+    arguments:
+      - names: ["-o", "--output-dir"]
+        dest: "output_dir"
+        type: "str"
+        default: "y:/ai/charflow/output/face_lora/"
+        help: "Directory to write rendered images to."
+      - names: ["-p", "--file-prefix"]
+        dest: "file_prefix"
+        type: "str"
+        default: "face"
+        help: "Filename prefix for output images. Angle label and extension are appended."
+      - names: ["-W", "--wid"]
+        dest: "wid"
+        type: "int"
+        default: 768
+        help: "Render width in pixels."
+      - names: ["-H", "--height"]
+        dest: "height"
+        type: "int"
+        default: 768
+        help: "Render height in pixels."
+      - names: ["-d", "--camera-distance"]
+        dest: "camera_distance"
+        type: "int"
+        default: 80
+        help: "Camera distance from the face center in DAZ scene units (cm)."
+      - names: ["-y", "--face-y-offset"]
+        dest: "face_y_offset"
+        type: "int"
+        default: 5
+        help: "Vertical offset from the head bone origin toward eye/nose level."
+      - names: ["-n", "--node-label"]
+        dest: "node_label"
+        type: "str"
+        default: null
+        help: "Label of the figure node to target. If not specified, the first skeleton in the scene is used."
+      - names: ["-t", "--test-mode"]
+        dest: "test_mode"
+        action: "store_true"
+        default: false
+        help: "If set, show a message box at each angle instead of rendering."

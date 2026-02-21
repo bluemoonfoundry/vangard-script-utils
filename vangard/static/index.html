@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vangard Pro - DAZ Studio Automation</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo">
+                <span class="logo-icon">🎬</span>
+                <h1>Vangard Pro</h1>
+            </div>
+            <div class="header-actions">
+                <div class="search-box">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="searchInput" placeholder="Search commands..." />
+                </div>
+                <button class="icon-button" id="themeToggle" title="Toggle Theme">
+                    <span class="theme-icon">🌙</span>
+                </button>
+                <a href="/docs" target="_blank" class="icon-button" title="API Documentation">
+                    <span>📚</span>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="container">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h2>Commands</h2>
+                <span class="command-count" id="commandCount">0</span>
+            </div>
+            <div class="command-list" id="commandList">
+                <!-- Commands will be dynamically loaded here -->
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading commands...</p>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Welcome Screen -->
+            <div class="welcome-screen" id="welcomeScreen">
+                <div class="welcome-card">
+                    <div class="welcome-icon">🎨</div>
+                    <h2>Welcome to Vangard Pro</h2>
+                    <p>Professional interface for DAZ Studio automation</p>
+                    <div class="welcome-features">
+                        <div class="feature">
+                            <span class="feature-icon">⚡</span>
+                            <span>Fast & Intuitive</span>
+                        </div>
+                        <div class="feature">
+                            <span class="feature-icon">🎯</span>
+                            <span>Visual Command Builder</span>
+                        </div>
+                        <div class="feature">
+                            <span class="feature-icon">🔄</span>
+                            <span>Real-time Feedback</span>
+                        </div>
+                    </div>
+                    <p class="welcome-hint">Select a command from the sidebar to get started</p>
+                </div>
+            </div>
+
+            <!-- Command Form -->
+            <div class="command-form-container" id="commandFormContainer" style="display: none;">
+                <div class="command-header">
+                    <div class="command-title">
+                        <span class="command-icon" id="commandIcon">📦</span>
+                        <div>
+                            <h2 id="commandName">Command Name</h2>
+                            <p id="commandDescription">Command description</p>
+                        </div>
+                    </div>
+                    <button class="icon-button close-button" id="closeCommand" title="Close">
+                        <span>✕</span>
+                    </button>
+                </div>
+
+                <form id="commandForm" class="command-form">
+                    <div id="formFields" class="form-fields">
+                        <!-- Form fields will be dynamically generated here -->
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-secondary" id="resetForm">Reset</button>
+                        <button type="submit" class="btn btn-primary" id="executeButton">
+                            <span class="button-icon">▶</span>
+                            <span>Execute Command</span>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Output Panel -->
+                <div class="output-panel" id="outputPanel" style="display: none;">
+                    <div class="output-header">
+                        <h3>Output</h3>
+                        <div class="output-actions">
+                            <button class="icon-button" id="clearOutput" title="Clear Output">
+                                <span>🗑️</span>
+                            </button>
+                            <button class="icon-button" id="toggleOutput" title="Collapse">
+                                <span>▼</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="output-content" id="outputContent">
+                        <!-- Output will be displayed here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-spinner">
+            <div class="spinner large"></div>
+            <p>Executing command...</p>
+        </div>
+    </div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

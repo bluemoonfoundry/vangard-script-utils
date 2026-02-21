@@ -31,7 +31,13 @@ setup(
     url="https://github.com/yourusername/vangard-script-utils",  # Update with actual URL
     packages=find_packages(exclude=["tests", "tests.*"]),
     package_data={
-        'vangard': ['scripts/*.dsa'],
+        'vangard': [
+            'scripts/*.dsa',
+            'static/*.html',
+            'static/css/*.css',
+            'static/js/*.js',
+            'static/assets/**/*',
+        ],
     },
     include_package_data=True,
     install_requires=[
@@ -55,6 +61,7 @@ setup(
             'vangard-interactive=vangard.interactive:main',
             'vangard-server=vangard.server:main',
             'vangard-gui=vangard.gui:main',
+            'vangard-pro=vangard.pro:main',
         ],
     },
     python_requires='>=3.8',

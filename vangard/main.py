@@ -7,6 +7,7 @@ from vangard import cli
 from vangard import interactive
 from vangard import server
 from vangard import gui
+from vangard import pro
 
 def main():
     parser = argparse.ArgumentParser(
@@ -28,7 +29,10 @@ def main():
     # GUI mode
     subparsers.add_parser("gui", help="Run in a simple GUI window.")
 
-    
+    # Pro mode
+    subparsers.add_parser("pro", help="Run the professional web interface.")
+
+
     args = parser.parse_args()
 
     print (f"Selected mode: {args.mode}")
@@ -39,7 +43,9 @@ def main():
     elif args.mode == "server":
         server.main()
     elif args.mode == "gui":  # <--- ADD THE LOGIC TO LAUNCH THE GUI
-        gui.main()        
+        gui.main()
+    elif args.mode == "pro":
+        pro.main()        
 
 if __name__ == "__main__":
     main()

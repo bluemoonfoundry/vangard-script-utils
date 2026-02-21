@@ -1,0 +1,185 @@
+// DAZ Studio version 4.24.0.4 filetype DAZ Script
+
+// ============================================================
+// face_lora_render.dsa  -  DAZ Studio Script
+// Renders a series of orbital camera angles around the face
+// for use as LoRA training images.
+//
+// Usage:
+//   1. Open your character scene in DAZ Studio
+//   2. Edit the CONFIGURATION section below
+//   3. Run via: Scripts > Run Script  (or drag onto viewport)
+// ============================================================
+
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
+include (util_path);
+
+var focus_script = null;
+
+function FaceRenderLoraSU() {
+
+    sFunctionName = 'FaceRenderLoraSU';
+
+    oScriptVars = init_script_utils (sFunctionName);
+
+    var bTestMode = getScriptArgValue('test_mode', false);
+    var sOutputDir = getScriptArgValue('output_dir', "y:/ai/charflow/output/face_lora/");
+    var sFilePrefix = getScriptArgValue('file_prefix', "face");
+    var iRenderWidth = getScriptArgValue('wid', 768);
+    var iRenderHeight = getScriptArgValue('height', 768);
+    var iCameraDistance = getScriptArgValue('camera_distance', 80);
+    var iFaceYOffset = getScriptArgValue('face_y_offset', 5);
+    var sSelectedNode = getScriptArgValue('node_label', null);
+    
+    // ========== CONFIGURATION ==========
+    // TODO: Use defualts from here or grab from the oScriptVars
+
+    // Camera distance from face center in DAZ scene units (cm).
+    // Increase if the face is too large / getting clipped at edges.
+    // Decrease if there is too much neck/shoulder showing.
+    //var iCameraDistance = 80;
+
+    // Fine-tune the face center height relative to the head bone origin.
+    // The head bone sits at the base of the skull; this lifts the aim point
+    // up toward nose/eye level.  Adjust if the camera aims too high or low.
+    //var iFaceYOffset = 5;
+
+    // ========== END CONFIGURATION ==========
+
+
+    //var DEG2RAD = Math.PI / 180;
+
+    // Camera angles  [azimuthÂ°,  elevationÂ°,  label]
+    //   Azimuth  :  0 = front,  +ve = character right,  -ve = character left
+    //   Elevation:  0 = level,  +ve = above (looking down), -ve = below (looking up)
+    var ANGLES = [
+        [   0,   0,  "01_front"          ],
+        [  15,   0,  "02_front_r15"      ],
+        [ -15,   0,  "03_front_l15"      ],
+        [  30,   0,  "04_3q_r30"         ],
+        [ -30,   0,  "05_3q_l30"         ],
+        [  45,   0,  "06_3q_r45"         ],
+        [ -45,   0,  "07_3q_l45"         ],
+        [  60,   0,  "08_nearprofile_r"  ],
+        [ -60,   0,  "09_nearprofile_l"  ],
+        [   0,  15,  "10_front_high"     ],
+        [   0, -10,  "11_front_low"      ],
+        [  30,  15,  "12_3q_r30_high"    ],
+        [ -30,  15,  "13_3q_l30_high"    ],
+        [  45,  10,  "14_3q_r45_high"    ],
+        [ -45,  10,  "15_3q_l45_high"    ],
+    ];
+
+    // ---- Helpers ----
+
+    // TODO:
+    // Returns the first DzSkeleton found in the scene (your figure), or use
+    // a named node from oScriptVars
+    
+    function findFigure() {
+        var nodes = Scene.getNodeList();
+        for (var i = 0; i < nodes.length; i++) {
+	    if (sSelectedNode == null) {
+		if (nodes[i].inherits("DzSkeleton")) return nodes[i];
+	    } else {
+		if (nodes[i].getLabel() == sSelectedNode) return nodes[i];
+	    }
+        }
+        return null;
+    }
+
+
+    // Renders the current frame to `filePath` at the configured resolution.
+    function renderToFile(sFilePath) {
+        var mgr  = App.getRenderMgr();
+        var opts = mgr.getRenderOptions();
+
+        opts.renderImgFilename = sFilePath;
+        opts.width             = iRenderWidth;
+        opts.height            = iRenderHeight;
+        opts.renderImgToId = DzRenderOptions.DirectToFile;
+
+	mgr.doRender(opts);
+
+        while (mgr.isRendering()) {
+            App.processEvents();
+        }	
+    }
+    
+    // ---- Main ----
+
+    var currentCam = getViewportCamera();
+
+    var camera = createPerspectiveCamera ("TEMP", "LoraCamera", "TEMP")
+
+    setViewportCamera(camera);
+
+    if (!camera) {
+        MessageBox.critical(
+            "No active camera found.\nPlease add a Perspective camera to the scene.",
+            "face_lora_render",
+            "&OK"
+        );
+        return;
+    }
+
+    var figure  = findFigure();
+    var facePos = getFaceCenter(figure, iFaceYOffset);
+
+    if (!figure) {
+        MessageBox.information(
+            "No figure found in scene.\n" +
+            "Using default face position (Y = 162 cm).\n" +
+            "Adjust iFaceYOffset in the script if framing is off.",
+            "face_lora_render",
+            "&OK"
+        );
+    }
+
+    // Create output directory if it does not exist
+    var dir = new DzDir(sOutputDir);
+    if (!dir.exists()) dir.mkpath(sOutputDir);
+
+    print("=== face_lora_render ===");
+    print("Figure  : " + (figure ? figure.getLabel() : "none (fallback)"));
+    print("Face at : " + facePos.x.toFixed(1) + ", " + facePos.y.toFixed(1) + ", " + facePos.z.toFixed(1));
+    print("Output  : " + sOutputDir);
+    print("Angles  : " + ANGLES.length);
+    print("------------------------");
+
+    for (var i = 10;  i < ANGLES.length; i++) {
+        var az    = ANGLES[i][0];
+        var el    = ANGLES[i][1];
+        var label = ANGLES[i][2];
+        var path  = sOutputDir + sFilePrefix + "_" + label + ".png";
+
+        setCameraOrbit(camera, facePos, az, el, iCameraDistance);
+
+        print("[" + (i + 1) + "/" + ANGLES.length + "] " + label + " -> " + path);
+
+	if (bTestMode) {
+            MessageBox.information("[" + (i + 1) + "/" + ANGLES.length + "] " + label + " -> " + path, "face_lora_render", "&OK");
+	} else {
+            renderToFile(path);
+	}
+	break;
+    }
+
+    setViewportCamera(currentCam);
+
+    Scene.removeNode(camera);
+
+    print("========================");
+    print("Done.");
+
+    MessageBox.information(
+        ANGLES.length + " images saved to:\n" + sOutputDir,
+        "face_lora_render â Complete",
+        "&OK"
+    );
+
+}
+
+FaceRenderLoraSU();
+
