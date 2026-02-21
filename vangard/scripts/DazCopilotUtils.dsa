@@ -581,6 +581,7 @@ function init_script_utils(log_source_id) {
         updateModifierKeyState();
     }
 
+    /*
     var sVars = null; // Initialize to null
     if (App.scriptArgs && App.scriptArgs.length > 0 && App.scriptArgs[0]) {
         try {
@@ -609,6 +610,9 @@ function init_script_utils(log_source_id) {
 
 
     return sVars;
+    */
+
+    return getArguments()[0];
 }
 
 

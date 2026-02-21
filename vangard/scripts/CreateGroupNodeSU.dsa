@@ -15,7 +15,7 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-includeDir_oFILE = DzFile( getScriptFileName() );
+includeDir_oFILE = DzFile( getScriptFileName());
 util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
 include (util_path);
 
