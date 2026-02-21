@@ -163,7 +163,14 @@ A powerful, configuration-driven command-line utility system that provides stand
    - `DAZ_SCRIPT_SERVER_HOST`: Hostname or IP of the DAZ Script Server. Default: `127.0.0.1`
    - `DAZ_SCRIPT_SERVER_PORT`: Port of the DAZ Script Server. Default: `18811`
 
-   When server mode is enabled, commands are sent as a POST request with the body `{"scriptFile": "<path>", "args": "<json>"}` instead of launching DAZ Studio directly.
+   When server mode is enabled, commands are sent as a `POST` request to `http://<host>:<port>/execute` with the body:
+   ```json
+   {
+     "scriptFile": "/absolute/path/to/Script.dsa",
+     "args": { "arg_name": "value" }
+   }
+   ```
+   `args` is passed as a JSON object (not a string). If no arguments are provided, `args` is an empty object `{}`.
 
 ### Alternative: Manual Installation
 
