@@ -203,6 +203,158 @@ class TestBaseCommandProcess:
         assert call_args['scene_file'] == '/test.duf'
 
 
+class TestBaseCommandExecRemoteScriptServer:
+    """Test suite for exec_remote_script when DAZ_SCRIPT_SERVER_ENABLED is set"""
+
+    def _make_mock_response(self, body: str = '{"status": "ok"}'):
+        """Return a context-manager mock that simulates urlopen's response."""
+        mock_resp = mock.MagicMock()
+        mock_resp.read.return_value = body.encode("utf-8")
+        mock_resp.__enter__ = mock.Mock(return_value=mock_resp)
+        mock_resp.__exit__ = mock.Mock(return_value=False)
+        return mock_resp
+
+    @mock.patch('urllib.request.urlopen')
+    @mock.patch('urllib.request.Request')
+    def test_server_mode_calls_urlopen_not_popen(self, mock_request, mock_urlopen):
+        """When server mode is enabled, urlopen is used instead of Popen"""
+        mock_urlopen.return_value = self._make_mock_response()
+
+        with mock.patch.dict(os.environ, {'DAZ_SCRIPT_SERVER_ENABLED': 'true'}, clear=False):
+            with mock.patch('subprocess.Popen') as mock_popen:
+                BaseCommand.exec_remote_script(
+                    script_name='TestScript.dsa',
+                    script_vars={'arg': 'value'},
+                )
+
+        mock_urlopen.assert_called_once()
+        mock_popen.assert_not_called()
+
+    @mock.patch('urllib.request.urlopen')
+    @mock.patch('urllib.request.Request')
+    def test_server_mode_default_host_and_port(self, mock_request, mock_urlopen):
+        """Server mode defaults to 127.0.0.1:18811"""
+        mock_urlopen.return_value = self._make_mock_response()
+
+        env = {'DAZ_SCRIPT_SERVER_ENABLED': 'true'}
+        with mock.patch.dict(os.environ, env, clear=False):
+            # Remove host/port overrides if present so defaults apply
+            os.environ.pop('DAZ_SCRIPT_SERVER_HOST', None)
+            os.environ.pop('DAZ_SCRIPT_SERVER_PORT', None)
+            BaseCommand.exec_remote_script(script_name='TestScript.dsa', script_vars={})
+
+        call_args = mock_request.call_args
+        url = call_args[0][0]
+        assert url == 'http://127.0.0.1:18811'
+
+    @mock.patch('urllib.request.urlopen')
+    @mock.patch('urllib.request.Request')
+    def test_server_mode_custom_host_and_port(self, mock_request, mock_urlopen):
+        """Server mode uses DAZ_SCRIPT_SERVER_HOST and DAZ_SCRIPT_SERVER_PORT"""
+        mock_urlopen.return_value = self._make_mock_response()
+
+        env = {
+            'DAZ_SCRIPT_SERVER_ENABLED': 'true',
+            'DAZ_SCRIPT_SERVER_HOST': '192.168.1.50',
+            'DAZ_SCRIPT_SERVER_PORT': '9000',
+        }
+        with mock.patch.dict(os.environ, env, clear=False):
+            BaseCommand.exec_remote_script(script_name='TestScript.dsa', script_vars={})
+
+        call_args = mock_request.call_args
+        url = call_args[0][0]
+        assert url == 'http://192.168.1.50:9000'
+
+    @mock.patch('urllib.request.urlopen')
+    @mock.patch('urllib.request.Request')
+    def test_server_mode_payload_contains_script_file(self, mock_request, mock_urlopen):
+        """POST payload contains scriptFile key with the resolved script path"""
+        mock_urlopen.return_value = self._make_mock_response()
+
+        with mock.patch.dict(os.environ, {'DAZ_SCRIPT_SERVER_ENABLED': 'true'}, clear=False):
+            BaseCommand.exec_remote_script(script_name='MyCommand.dsa', script_vars={})
+
+        call_kwargs = mock_request.call_args[1]
+        payload = json.loads(call_kwargs['data'].decode('utf-8'))
+        assert 'scriptFile' in payload
+        assert payload['scriptFile'].endswith('MyCommand.dsa')
+
+    @mock.patch('urllib.request.urlopen')
+    @mock.patch('urllib.request.Request')
+    def test_server_mode_payload_contains_args_as_json(self, mock_request, mock_urlopen):
+        """POST payload args field is JSON-serialized script_vars"""
+        mock_urlopen.return_value = self._make_mock_response()
+
+        script_vars = {'scene_file': '/test.duf', 'merge': False, 'count': 42}
+
+        with mock.patch.dict(os.environ, {'DAZ_SCRIPT_SERVER_ENABLED': 'true'}, clear=False):
+            BaseCommand.exec_remote_script(script_name='TestScript.dsa', script_vars=script_vars)
+
+        call_kwargs = mock_request.call_args[1]
+        payload = json.loads(call_kwargs['data'].decode('utf-8'))
+        assert payload['args'] == json.dumps(script_vars)
+
+    @mock.patch('urllib.request.urlopen')
+    @mock.patch('urllib.request.Request')
+    def test_server_mode_payload_none_vars_sends_empty_string(self, mock_request, mock_urlopen):
+        """POST payload args is empty string when script_vars is None"""
+        mock_urlopen.return_value = self._make_mock_response()
+
+        with mock.patch.dict(os.environ, {'DAZ_SCRIPT_SERVER_ENABLED': 'true'}, clear=False):
+            BaseCommand.exec_remote_script(script_name='TestScript.dsa', script_vars=None)
+
+        call_kwargs = mock_request.call_args[1]
+        payload = json.loads(call_kwargs['data'].decode('utf-8'))
+        assert payload['args'] == ''
+
+    @mock.patch('urllib.request.urlopen')
+    @mock.patch('urllib.request.Request')
+    def test_server_mode_enabled_flag_variants(self, mock_request, mock_urlopen):
+        """DAZ_SCRIPT_SERVER_ENABLED accepts true, 1, and yes"""
+        mock_urlopen.return_value = self._make_mock_response()
+
+        for value in ('true', 'True', 'TRUE', '1', 'yes'):
+            mock_urlopen.reset_mock()
+            with mock.patch.dict(os.environ, {'DAZ_SCRIPT_SERVER_ENABLED': value}, clear=False):
+                BaseCommand.exec_remote_script(script_name='TestScript.dsa', script_vars={})
+            assert mock_urlopen.called, f"Expected server mode for DAZ_SCRIPT_SERVER_ENABLED={value!r}"
+
+    @mock.patch('subprocess.Popen')
+    def test_server_mode_disabled_by_default(self, mock_popen, temp_env):
+        """Without DAZ_SCRIPT_SERVER_ENABLED, subprocess path is used"""
+        env = dict(os.environ)
+        env.pop('DAZ_SCRIPT_SERVER_ENABLED', None)
+
+        with mock.patch.dict(os.environ, env, clear=True):
+            BaseCommand.exec_remote_script(script_name='TestScript.dsa', script_vars={})
+
+        mock_popen.assert_called_once()
+
+    @mock.patch('urllib.request.urlopen')
+    @mock.patch('urllib.request.Request')
+    def test_server_mode_uses_post_method(self, mock_request, mock_urlopen):
+        """Request is constructed with POST method"""
+        mock_urlopen.return_value = self._make_mock_response()
+
+        with mock.patch.dict(os.environ, {'DAZ_SCRIPT_SERVER_ENABLED': 'true'}, clear=False):
+            BaseCommand.exec_remote_script(script_name='TestScript.dsa', script_vars={})
+
+        call_kwargs = mock_request.call_args[1]
+        assert call_kwargs['method'] == 'POST'
+
+    @mock.patch('urllib.request.urlopen')
+    @mock.patch('urllib.request.Request')
+    def test_server_mode_sets_content_type_header(self, mock_request, mock_urlopen):
+        """Request includes Content-Type: application/json header"""
+        mock_urlopen.return_value = self._make_mock_response()
+
+        with mock.patch.dict(os.environ, {'DAZ_SCRIPT_SERVER_ENABLED': 'true'}, clear=False):
+            BaseCommand.exec_remote_script(script_name='TestScript.dsa', script_vars={})
+
+        call_kwargs = mock_request.call_args[1]
+        assert call_kwargs['headers']['Content-Type'] == 'application/json'
+
+
 class TestBaseCommandExecDefaultScript:
     """Test suite for BaseCommand.exec_default_script method"""
 

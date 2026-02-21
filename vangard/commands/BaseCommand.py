@@ -1,5 +1,6 @@
 # vangard/commands/base.py
 import os
+import urllib.request
 from abc import ABC, abstractmethod
 import argparse
 import json
@@ -56,40 +57,53 @@ class BaseCommand(ABC):
         )
 
     @staticmethod
-    def exec_remote_script (script_name:str, script_vars:dict|None=None, daz_command_line:str|None=None):    
+    def exec_remote_script(script_name: str, script_vars: dict | None = None, daz_command_line: str | None = None):
 
-        print (os.environ['DAZ_ROOT'])
-
-        daz_root = os.getenv("DAZ_ROOT")
-        daz_args = os.getenv("DAZ_ARGS")
-        
-        if (daz_args is None):
-            daz_args = ""
-        if (daz_command_line is None):
-            daz_command_line = ""
-        elif (isinstance(daz_command_line, list)):
-            daz_command_line = " ".join(daz_command_line)
-
-
-        mark = __file__.replace("\\","/")
+        mark = __file__.replace("\\", "/")
         parts = mark.split("/")[:-2]
         parts.append("scripts")
-        new_path = "/".join(parts)
-        script_path = f"{new_path}/{script_name}"
+        script_path = "/".join(parts) + f"/{script_name}"
 
-        if script_path is not None:
-            mark_args="";
-            if script_vars is not None:
-                mark_args += f'{json.dumps(script_vars)}'
+        mark_args = json.dumps(script_vars) if script_vars is not None else ""
+
+        server_enabled = os.getenv("DAZ_SCRIPT_SERVER_ENABLED", "false").strip().lower() in ("true", "1", "yes")
+
+        if server_enabled:
+            host = os.getenv("DAZ_SCRIPT_SERVER_HOST", "127.0.0.1")
+            port = os.getenv("DAZ_SCRIPT_SERVER_PORT", "18811")
+            url = f"http://{host}:{port}"
+
+            payload = json.dumps({"scriptFile": script_path, "args": mark_args}).encode("utf-8")
+
+            print(f"Sending script to DAZ Script Server: {url}")
+            print(f"  scriptFile: {script_path}")
+
+            req = urllib.request.Request(
+                url,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req) as response:
+                result = response.read().decode("utf-8")
+                print(f"DAZ Script Server response: {result}")
+
+        else:
+            print(os.environ['DAZ_ROOT'])
+
+            daz_root = os.getenv("DAZ_ROOT")
+            daz_args = os.getenv("DAZ_ARGS", "")
+
+            if daz_command_line is None:
+                daz_command_line = ""
+            elif isinstance(daz_command_line, list):
+                daz_command_line = " ".join(daz_command_line)
 
             command_expanded = f'"{daz_root}" -scriptArg \'{mark_args}\' {daz_args} {daz_command_line} {script_path}'
 
-            print (f'Executing script file with command line: {command_expanded}') 
+            print(f'Executing script file with command line: {command_expanded}')
 
-            process = subprocess.Popen (command_expanded, shell=False)
-
-        else:
-            print (f"No valid script file was presented for command.")
+            subprocess.Popen(command_expanded, shell=False)
         
 
     @staticmethod
