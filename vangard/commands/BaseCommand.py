@@ -64,23 +64,27 @@ class BaseCommand(ABC):
         parts.append("scripts")
         script_path = "/".join(parts) + f"/{script_name}"
 
-        mark_args = json.dumps(script_vars) if script_vars is not None else ""
-
         server_enabled = os.getenv("DAZ_SCRIPT_SERVER_ENABLED", "false").strip().lower() in ("true", "1", "yes")
 
         if server_enabled:
             host = os.getenv("DAZ_SCRIPT_SERVER_HOST", "127.0.0.1")
             port = os.getenv("DAZ_SCRIPT_SERVER_PORT", "18811")
-            url = f"http://{host}:{port}"
+            url = f"http://{host}:{port}/execute"
 
-            payload = json.dumps({"scriptFile": script_path, "args": mark_args}).encode("utf-8")
+            mark_args = script_vars if script_vars is not None else {}
+
+            payload = {
+                "scriptFile": script_path,
+                "args": mark_args
+            }
+            
 
             print(f"Sending script to DAZ Script Server: {url}")
-            print(f"  scriptFile: {script_path}")
+            print(f"  payload: {json.dumps(payload, indent=2)}")
 
             req = urllib.request.Request(
                 url,
-                data=payload,
+                data=json.dumps(payload).encode("utf-8"),
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
@@ -98,6 +102,8 @@ class BaseCommand(ABC):
                 daz_command_line = ""
             elif isinstance(daz_command_line, list):
                 daz_command_line = " ".join(daz_command_line)
+
+            mark_args = json.dumps(script_vars) if script_vars is not None else ""                
 
             command_expanded = f'"{daz_root}" -scriptArg \'{mark_args}\' {daz_args} {daz_command_line} {script_path}'
 

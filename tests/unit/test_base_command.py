@@ -245,7 +245,7 @@ class TestBaseCommandExecRemoteScriptServer:
 
         call_args = mock_request.call_args
         url = call_args[0][0]
-        assert url == 'http://127.0.0.1:18811'
+        assert url == 'http://127.0.0.1:18811/execute'
 
     @mock.patch('urllib.request.urlopen')
     @mock.patch('urllib.request.Request')
@@ -263,7 +263,7 @@ class TestBaseCommandExecRemoteScriptServer:
 
         call_args = mock_request.call_args
         url = call_args[0][0]
-        assert url == 'http://192.168.1.50:9000'
+        assert url == 'http://192.168.1.50:9000/execute'
 
     @mock.patch('urllib.request.urlopen')
     @mock.patch('urllib.request.Request')
@@ -292,12 +292,12 @@ class TestBaseCommandExecRemoteScriptServer:
 
         call_kwargs = mock_request.call_args[1]
         payload = json.loads(call_kwargs['data'].decode('utf-8'))
-        assert payload['args'] == json.dumps(script_vars)
+        assert payload['args'] == script_vars
 
     @mock.patch('urllib.request.urlopen')
     @mock.patch('urllib.request.Request')
-    def test_server_mode_payload_none_vars_sends_empty_string(self, mock_request, mock_urlopen):
-        """POST payload args is empty string when script_vars is None"""
+    def test_server_mode_payload_none_vars_sends_empty_dict(self, mock_request, mock_urlopen):
+        """POST payload args is empty dict when script_vars is None"""
         mock_urlopen.return_value = self._make_mock_response()
 
         with mock.patch.dict(os.environ, {'DAZ_SCRIPT_SERVER_ENABLED': 'true'}, clear=False):
@@ -305,7 +305,7 @@ class TestBaseCommandExecRemoteScriptServer:
 
         call_kwargs = mock_request.call_args[1]
         payload = json.loads(call_kwargs['data'].decode('utf-8'))
-        assert payload['args'] == ''
+        assert payload['args'] == {}
 
     @mock.patch('urllib.request.urlopen')
     @mock.patch('urllib.request.Request')
