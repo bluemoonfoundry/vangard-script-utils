@@ -142,14 +142,28 @@ A powerful, configuration-driven command-line utility system that provides stand
 3. **Set up environment variables**:
    Create a `.env` file in the root directory:
    ```bash
+   # DAZ Studio subprocess mode (default)
    DAZ_ROOT=/path/to/daz/studio/executable
    DAZ_ARGS=--optional-daz-arguments
+
+   # DAZ Script Server plugin mode (optional)
+   DAZ_SCRIPT_SERVER_ENABLED=false
+   DAZ_SCRIPT_SERVER_HOST=127.0.0.1
+   DAZ_SCRIPT_SERVER_PORT=18811
    ```
 
+   **Subprocess mode** (default):
    - `DAZ_ROOT`: Absolute path to your DAZ Studio executable
      - Windows: `C:/Program Files/DAZ 3D/DAZStudio4/DAZStudio.exe`
      - macOS: `/Applications/DAZ 3D/DAZStudio4 64-bit/DAZStudio.app/Contents/MacOS/DAZStudio`
    - `DAZ_ARGS`: Optional additional arguments to pass to DAZ Studio
+
+   **DAZ Script Server mode** (requires the DAZ Script Server plugin):
+   - `DAZ_SCRIPT_SERVER_ENABLED`: Set to `true`, `1`, or `yes` to use the REST API instead of spawning a subprocess. Default: `false`
+   - `DAZ_SCRIPT_SERVER_HOST`: Hostname or IP of the DAZ Script Server. Default: `127.0.0.1`
+   - `DAZ_SCRIPT_SERVER_PORT`: Port of the DAZ Script Server. Default: `18811`
+
+   When server mode is enabled, commands are sent as a POST request with the body `{"scriptFile": "<path>", "args": "<json>"}` instead of launching DAZ Studio directly.
 
 ### Alternative: Manual Installation
 
