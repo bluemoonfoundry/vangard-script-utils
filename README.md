@@ -1,6 +1,6 @@
 # Vangard Script Utils
 
-A powerful, configuration-driven command-line utility system that provides standardized automation scripts for DAZ Studio. This toolkit acts as a bridge between Python and DAZ Studio's scripting language (DSA), offering multiple interaction modes including CLI, interactive shell, REST API server, and GUI.
+A powerful, configuration-driven command-line utility system that provides standardized automation scripts for DAZ Studio. This toolkit acts as a bridge between Python and DAZ Studio's scripting language (DSA), offering multiple interaction modes including CLI, interactive shell, REST API server, GUI, and a modern web interface (Pro mode).
 
 ## Table of Contents
 
@@ -14,6 +14,7 @@ A powerful, configuration-driven command-line utility system that provides stand
   - [Interactive Mode](#interactive-mode)
   - [Server Mode](#server-mode)
   - [GUI Mode](#gui-mode)
+  - [Pro Mode](#pro-mode)
 - [Available Commands](#available-commands)
 - [Adding New Commands](#adding-new-commands)
 - [Development](#development)
@@ -22,12 +23,13 @@ A powerful, configuration-driven command-line utility system that provides stand
 ## Features
 
 - **Configuration-Driven**: All commands defined in a central YAML configuration file
-- **Multiple Interface Modes**: CLI, interactive shell, REST API, and GUI
+- **Multiple Interface Modes**: CLI, interactive shell, REST API, GUI, and Pro web interface
 - **Dynamic Command Loading**: Commands are loaded and parsed at runtime
 - **Extensible Architecture**: Easy to add new commands without modifying core code
 - **Type-Safe Arguments**: Automatic argument validation and type conversion
 - **Auto-Generated Documentation**: Command reference documentation generated from config
 - **DAZ Studio Integration**: Seamless execution of DAZ Studio scripts from Python
+- **Pro Mode**: Modern, dark-themed web interface with dynamic forms and real-time feedback
 
 ## Architecture
 
@@ -36,14 +38,14 @@ A powerful, configuration-driven command-line utility system that provides stand
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                        User Input                            │
-│  (CLI Args / Interactive Shell / HTTP Request / GUI)         │
+│  (CLI Args / Interactive Shell / HTTP Request / GUI / Pro)   │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              vangard/main.py (Entry Point)                   │
-│       Routes to: vangard/cli.py, vangard/interactive.py,     │
-│                vangard/server.py, or vangard/gui.py          │
+│   Routes to: cli.py, interactive.py, server.py,             │
+│              gui.py, or pro.py                               │
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
@@ -63,7 +65,7 @@ A powerful, configuration-driven command-line utility system that provides stand
 │  ┌─────────────────────────────────────────────────────┐   │
 │  │ BaseCommand (Abstract Base)                         │   │
 │  │   - process(args)                                   │   │
-│  │   - exec_remote_script(script_name, vars)          │   │
+│  │   - exec_remote_script(script_name, vars)           │   │
 │  │   - to_dict(args)                                   │   │
 │  └──────────────────────┬──────────────────────────────┘   │
 │                         │                                    │
@@ -97,7 +99,7 @@ A powerful, configuration-driven command-line utility system that provides stand
 2. **core/framework.py**: Core engine that loads config, builds parsers, and executes commands
 3. **vangard/commands/**: Python command classes that process arguments and launch DAZ scripts
 4. **vangard/scripts/**: DAZ Studio script files (.dsa) that perform actual operations in DAZ
-5. **Interface Layers**: CLI, Interactive Shell, FastAPI Server, and GUI implementations
+5. **Interface Layers**: CLI, Interactive Shell, FastAPI Server, GUI, and Pro web interface
 
 ### Command Execution Flow
 
@@ -135,6 +137,7 @@ A powerful, configuration-driven command-line utility system that provides stand
    - `vangard-interactive` - Interactive shell
    - `vangard-server` - FastAPI server
    - `vangard-gui` - GUI interface
+   - `vangard-pro` - Pro web interface
 
 3. **Set up environment variables**:
    Create a `.env` file in the root directory:
@@ -236,6 +239,9 @@ vangard-cli create-cam "MyCamera" "PerspectiveCamera" --focus
 # Save scene with incremented filename
 vangard-cli inc-scene
 
+# Capture the active viewport to image files
+vangard-cli save-viewport -f C:/output/frame
+
 # Get help for a specific command
 vangard-cli help batch-render
 
@@ -317,9 +323,46 @@ python -m vangard.gui
 
 The GUI provides a user-friendly interface for executing commands without using the command line.
 
+### Pro Mode
+
+Launch the professional web interface — a modern, dark-themed browser UI with dynamic forms, real-time feedback, and command discovery:
+
+```bash
+vangard-pro
+# or
+vangard pro
+# or
+python -m vangard.pro
+```
+
+The server starts at **http://127.0.0.1:8000**. Open that URL in any modern browser to access the Pro interface.
+
+**Pro Mode Features**:
+- **Visual Command Browser**: Searchable sidebar listing all available commands with icons and descriptions
+- **Dynamic Forms**: Forms are auto-generated from `config.yaml` — required fields, type-aware inputs, and help tooltips
+- **Real-time Output**: Color-coded results (green = success, red = error) with timestamps
+- **Dark Theme**: Professional dark UI with glassmorphism effects, optimized for 3D work environments
+- **Theme Toggle**: Switch between dark and light themes
+- **API Access**: Swagger UI still available at `/docs`
+
+See [PRO_MODE.md](PRO_MODE.md) for full documentation on Pro mode customization and usage.
+
+**Mode Comparison**:
+
+| Feature | CLI | Interactive | GUI | Server | Pro |
+|---------|-----|-------------|-----|--------|-----|
+| Visual Interface | ❌ | ❌ | ✅ | ❌ | ✅ |
+| No Command Syntax Required | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Form-based Input | ❌ | ❌ | ✅ | ✅ | ✅ |
+| Modern Design | ❌ | ❌ | ❌ | N/A | ✅ |
+| Real-time Feedback | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Command Discovery | ❌ | ⚠️ | ⚠️ | ✅ | ✅ |
+| API Access | ❌ | ❌ | ❌ | ✅ | ✅ |
+| Web-based | ❌ | ❌ | ❌ | ✅ | ✅ |
+
 ## Available Commands
 
-For a complete list of available commands and their arguments, see [ARGS.md](ARGS.md).
+For a complete reference of all commands and their arguments, see [config_reference.md](config_reference.md).
 
 **Common Commands**:
 
@@ -335,6 +378,8 @@ For a complete list of available commands and their arguments, see [ARGS.md](ARG
 - `inc-scene`: Save scene with incremented filename
 - `product-list`: List products used in current scene
 - `save-subset`: Save selected items to scene subset file
+- `save-viewport`: Capture the active viewport to image files for a range of frames
+- `face-render-lora`: Render orbital camera angles around a figure's face for LoRA training image generation
 
 ## Adding New Commands
 
@@ -376,30 +421,9 @@ Create `vangard/commands/MyNewCommandSU.py`:
 from vangard.commands.BaseCommand import BaseCommand
 
 class MyNewCommandSU(BaseCommand):
-    """
-    Command to do something specific.
-    """
-    # Default implementation calls MyNewCommandSU.dsa script
-    # Override process() if you need custom Python logic:
-
-    def process(self, args):
-        """
-        Custom processing logic (optional).
-        """
-        args_dict = self.to_dict(args)
-
-        # Do any Python-side processing here
-        print(f"Processing command with args: {args_dict}")
-
-        # Execute the DAZ Studio script
-        self.exec_default_script(args_dict)
-
-        # Or call a specific script:
-        # self.exec_remote_script(
-        #     script_name="MyNewCommandSU.dsa",
-        #     script_vars=args_dict,
-        #     daz_command_line=None
-        # )
+    # Default implementation calls MyNewCommandSU.dsa script.
+    # Override process() only if you need custom Python-side logic.
+    pass
 ```
 
 ### 3. Create DAZ Studio Script
@@ -412,8 +436,7 @@ Create `vangard/scripts/MyNewCommandSU.dsa`:
  * Licensed under GNU Affero General Public License v3
  */
 
-// Include utility functions
-includeDir_oFILE = DzFile( getScriptFileName() );
+includeDir_oFILE = DzFile( getScriptFileName());
 util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
 include (util_path);
 
@@ -424,56 +447,33 @@ function MyNewCommandSU() {
     oScriptVars = init_script_utils(sFunctionName);
 
     // Access arguments by name
-    sRequiredArg = oScriptVars['required_arg'];
-    nOptionalArg = oScriptVars['optional_arg'];
-
-    print('MyNewCommandSU: required_arg=' + sRequiredArg +
-          ', optional_arg=' + nOptionalArg);
+    var sRequiredArg = getScriptArgValue('required_arg', null);
+    var nOptionalArg = getScriptArgValue('optional_arg', 0);
 
     // Implement your DAZ Studio logic here
-    // Example: Get current scene, modify objects, render, etc.
 
-    var scene = Scene.getScene();
-    if (scene) {
-        // Do something with the scene
-        log_success_event('Command executed successfully');
-    } else {
-        log_failure_event('Failed to get scene');
-    }
-
-    // Clean up
+    log_success_event('Command executed successfully');
     close_script_utils();
 }
 
-// Execute the function
 MyNewCommandSU();
 ```
 
 ### 4. Update Documentation
 
-Regenerate the command reference documentation:
+Regenerate the command reference:
 
 ```bash
 python generate_docs.py
 ```
 
-This updates `ARGS.md` with your new command's information.
+### 5. Add Tests
 
-### 5. Test Your Command
-
-Test your new command in all modes:
+Create `tests/commands/test_my_new_command_su.py` following the pattern of existing test files. Then run:
 
 ```bash
-# CLI mode
-python main.py cli my-new-command "test value" --optional-arg 42
-
-# Interactive mode
-python main.py interactive
-> my-new-command "test value" --optional-arg 42
-
-# Server mode (in another terminal)
-python main.py server
-# Then use curl or visit http://127.0.0.1:8000/docs
+pytest tests/commands/test_my_new_command_su.py -v
+pytest tests/integration/  # Verify config consistency
 ```
 
 ## Development
@@ -486,8 +486,10 @@ vangard-script-utils/
 ├── pyproject.toml          # Modern packaging configuration
 ├── MANIFEST.in             # Distribution manifest
 ├── config.yaml             # Command definitions
+├── config_reference.md     # Auto-generated command reference
 ├── requirements.txt        # Python dependencies
 ├── pytest.ini              # Test configuration
+├── generate_docs.py        # Regenerates config_reference.md
 ├── core/
 │   ├── __init__.py
 │   └── framework.py        # Core framework engine
@@ -498,29 +500,33 @@ vangard-script-utils/
 │   ├── interactive.py      # Interactive shell
 │   ├── server.py           # FastAPI server
 │   ├── gui.py              # GUI interface
+│   ├── pro.py              # Pro web interface (FastAPI + static files)
+│   ├── static/             # Pro mode frontend assets
+│   │   ├── index.html
+│   │   ├── css/styles.css
+│   │   └── js/app.js
 │   ├── commands/           # Python command classes
 │   │   ├── BaseCommand.py  # Abstract base class
 │   │   ├── LoadMergeSU.py
 │   │   ├── BatchRenderSU.py
+│   │   ├── SaveViewportSU.py
+│   │   ├── FaceRenderLoraSU.py
 │   │   └── ...
 │   └── scripts/            # DAZ Studio scripts
 │       ├── DazCopilotUtils.dsa  # Utility functions
 │       ├── LoadMergeSU.dsa
 │       ├── BatchRenderSU.dsa
+│       ├── SaveViewportSU.dsa
+│       ├── FaceRenderLoraSU.dsa
 │       └── ...
-├── tests/                  # Test suite (164 tests)
+├── tests/                  # Test suite (179 tests)
 │   ├── conftest.py         # Test fixtures
-│   ├── commands/           # Command tests (122 tests)
+│   ├── commands/           # Command tests (137 tests)
 │   ├── unit/               # Unit tests (39 tests)
 │   └── integration/        # Integration tests (8 tests)
-├── .github/
-│   └── workflows/
-│       └── tests.yml       # CI/CD workflow
-├── ARGS.md                 # Auto-generated command reference
-├── CLAUDE.md               # AI assistant guidance
-├── INSTALLATION.md         # Installation guide
-├── TESTING_STRATEGY.md     # Testing documentation
-└── README.md               # This file
+└── .github/
+    └── workflows/
+        └── tests.yml       # CI/CD workflow
 ```
 
 ### Dependencies
@@ -533,23 +539,30 @@ vangard-script-utils/
 
 ### Running Tests
 
-The project includes a comprehensive test suite with 164 tests. Run tests using pytest:
+The project includes a comprehensive test suite with 179 tests:
 
 ```bash
 # Run all tests
-python -m pytest tests/
+pytest tests/
 
 # Run with verbose output
-python -m pytest tests/ -v
+pytest tests/ -v
 
 # Run specific test categories
-python -m pytest tests/commands/      # Command tests
-python -m pytest tests/unit/          # Unit tests
-python -m pytest tests/integration/   # Integration tests
+pytest tests/commands/      # Command tests
+pytest tests/unit/          # Unit tests
+pytest tests/integration/   # Integration tests
 
 # Run with coverage
-python -m pytest tests/ --cov=vangard --cov=core --cov-report=html
+pytest tests/ --cov=vangard --cov=core --cov-report=html
 ```
+
+**Test Markers**:
+- `unit` - Fast tests with no external dependencies
+- `integration` - Integration tests (no DAZ Studio required)
+- `command` - Individual command tests
+- `e2e` - End-to-end tests (require DAZ Studio, excluded by default)
+- `manual` - Manual tests (excluded by default)
 
 ### Code Conventions
 
