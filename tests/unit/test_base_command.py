@@ -93,7 +93,8 @@ class TestBaseCommandExecRemoteScript:
 
         assert mock_popen.called
         call_args = mock_popen.call_args[0][0]
-        assert '--headless --test' in call_args
+        assert '--headless' in call_args
+        assert '--test' in call_args
 
     @mock.patch('subprocess.Popen')
     def test_includes_script_path(self, mock_popen, temp_env):
@@ -106,7 +107,8 @@ class TestBaseCommandExecRemoteScript:
 
         assert mock_popen.called
         call_args = mock_popen.call_args[0][0]
-        assert 'TestScript.dsa' in call_args
+        # Check that any item in the command list contains TestScript.dsa
+        assert any('TestScript.dsa' in arg for arg in call_args)
 
     @mock.patch('subprocess.Popen')
     def test_serializes_script_vars_to_json(self, mock_popen, temp_env):
@@ -173,7 +175,8 @@ class TestBaseCommandExecRemoteScript:
 
         assert mock_popen.called
         call_args = mock_popen.call_args[0][0]
-        assert '--flag1 --flag2' in call_args
+        assert '--flag1' in call_args
+        assert '--flag2' in call_args
 
 
 class TestBaseCommandProcess:

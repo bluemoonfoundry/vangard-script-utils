@@ -73,8 +73,8 @@ def create_fastapi_app():
                     # --- CRITICAL CHANGE ---
                     # Instantiate the command and pass the parser to its constructor.
                     command_instance = CommandClass(parser=parser, config=config)
-                    
-                    result = command_instance.run(namespace)
+
+                    result = command_instance.process(namespace)
                     
                     return {"result": result}
                 except Exception as e:

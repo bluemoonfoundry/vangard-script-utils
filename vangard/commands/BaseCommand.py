@@ -1,11 +1,11 @@
 # vangard/commands/base.py
 import os
 import urllib.request
-from abc import ABC, abstractmethod
+from abc import ABC
 import argparse
 import json
 import subprocess
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, Optional, Set, Union
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -48,7 +48,13 @@ class BaseCommand(ABC):
             self.script_vars = args_dict  # Store for subclass access
             self.exec_default_script(args_dict)
     
-    def exec_default_script(self, args):
+    def exec_default_script(self, args: Dict[str, Any]) -> None:
+        """
+        Executes the default .dsa script with the same name as the command class.
+
+        Args:
+            args: Dictionary of arguments to pass to the script
+        """
         script_name = f"{self.__class__.__name__}.dsa"
         self.exec_remote_script(
             script_name=script_name,
@@ -57,7 +63,26 @@ class BaseCommand(ABC):
         )
 
     @staticmethod
-    def exec_remote_script(script_name: str, script_vars: dict | None = None, daz_command_line: str | None = None):
+    def exec_remote_script(
+        script_name: str,
+        script_vars: Optional[Dict[str, Any]] = None,
+        daz_command_line: Optional[Union[str, list]] = None
+    ) -> None:
+        """
+        Executes a DAZ Script either via subprocess or DAZ Script Server.
+
+        Args:
+            script_name: Name of the .dsa script file to execute
+            script_vars: Dictionary of variables to pass to the script as JSON
+            daz_command_line: Additional command line arguments for DAZ Studio (string or list)
+
+        Environment Variables:
+            DAZ_SCRIPT_SERVER_ENABLED: Set to 'true' to use server mode
+            DAZ_SCRIPT_SERVER_HOST: Server host (default: 127.0.0.1)
+            DAZ_SCRIPT_SERVER_PORT: Server port (default: 18811)
+            DAZ_ROOT: Path to DAZ Studio executable
+            DAZ_ARGS: Default arguments for DAZ Studio
+        """
 
         mark = __file__.replace("\\", "/")
         parts = mark.split("/")[:-2]
@@ -88,7 +113,9 @@ class BaseCommand(ABC):
                 headers={"Content-Type": "application/json"},
                 method="POST",
             )
-            with urllib.request.urlopen(req) as response:
+            # Set a 30-second timeout to prevent hanging on unresponsive servers
+            timeout = 30
+            with urllib.request.urlopen(req, timeout=timeout) as response:
                 result = response.read().decode("utf-8")
                 print(f"DAZ Script Server response: {result}")
 
@@ -98,18 +125,31 @@ class BaseCommand(ABC):
             daz_root = os.getenv("DAZ_ROOT")
             daz_args = os.getenv("DAZ_ARGS", "")
 
-            if daz_command_line is None:
-                daz_command_line = ""
-            elif isinstance(daz_command_line, list):
-                daz_command_line = " ".join(daz_command_line)
+            # Build command as a list for cross-platform compatibility
+            command_list = [daz_root]
 
-            mark_args = json.dumps(script_vars) if script_vars is not None else ""                
+            # Add script arguments
+            mark_args = json.dumps(script_vars) if script_vars is not None else ""
+            if mark_args:
+                command_list.extend(["-scriptArg", mark_args])
 
-            command_expanded = f'"{daz_root}" -scriptArg \'{mark_args}\' {daz_args} {daz_command_line} {script_path}'
+            # Add DAZ_ARGS if present
+            if daz_args:
+                command_list.extend(daz_args.split())
 
-            print(f'Executing script file with command line: {command_expanded}')
+            # Add custom command line arguments
+            if daz_command_line:
+                if isinstance(daz_command_line, list):
+                    command_list.extend(daz_command_line)
+                else:
+                    command_list.extend(daz_command_line.split())
 
-            subprocess.Popen(command_expanded, shell=False)
+            # Add script path
+            command_list.append(script_path)
+
+            print(f'Executing script file with command: {" ".join(command_list)}')
+
+            subprocess.Popen(command_list, shell=False)
         
 
     @staticmethod

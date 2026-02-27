@@ -1,0 +1,141 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/**
+ * DazCoreUtils.dsa
+ *
+ * Core utility functions for DAZ Script including debugging,
+ * modifier key state management, and type checking.
+ */
+
+// Initialize 'static' variables that hold modifier key state
+/**
+ * Flag indicating if the Shift key is currently pressed.
+ * Updated by `updateModifierKeyState`.
+ * @type {boolean}
+ */
+var s_bShiftPressed = false;
+/**
+ * Flag indicating if the Control key is currently pressed.
+ * Updated by `updateModifierKeyState`.
+ * @type {boolean}
+ */
+var s_bControlPressed = false;
+/**
+ * Flag indicating if the Alt key is currently pressed.
+ * `debug()` function output is conditional on this flag.
+ * Updated by `updateModifierKeyState`.
+ * @type {boolean}
+ */
+var s_bAltPressed = false;
+/**
+ * Flag indicating if the Meta key (e.g., Command key on macOS, Windows key on Windows) is currently pressed.
+ * Updated by `updateModifierKeyState`.
+ * @type {boolean}
+ */
+var s_bMetaPressed = false;
+
+// Axis constants
+X_AXIS = 0x00000001;
+Y_AXIS = 0x00000002;
+Z_AXIS = 0x00000003;
+
+/**
+ * Prints messages to the DAZ Studio script output console if the Alt key (`s_bAltPressed`) is pressed.
+ * This function is intended for debugging purposes.
+ * @param {...any} arguments - One or more arguments to be printed. They will be joined by spaces.
+ * @returns {void}
+ */
+function debug()
+{
+    // If we are not debugging (Alt key not pressed)
+    if( !s_bAltPressed ){
+        // We are done...
+        return;
+    }
+
+    // Convert the arguments object into an array
+    var aArguments = [].slice.call( arguments );
+
+    // Print the array (DAZ Studio's print function)
+    print( aArguments.join(" ") );
+};
+
+/**
+ * Retrieves a translated string if localization is available (via `qsTr`),
+ * otherwise returns the original string.
+ * @param {string} sText - The text string to translate.
+ * @returns {string} The translated string or the original string if no translation is found or `qsTr` is undefined.
+ */
+function text( sText )
+{
+    // If the version of the application supports qsTr()
+    if( typeof( qsTr ) != "undefined" ){
+        // Return the translated (if any) text
+        return qsTr( sText );
+    }
+
+    // Return the original text
+    return sText;
+};
+
+/**
+ * Updates the global modifier key state variables (`s_bShiftPressed`, `s_bControlPressed`,
+ * `s_bAltPressed`, `s_bMetaPressed`) by querying the application's current modifier key state.
+ * Relies on `App.modifierKeyState()`.
+ * @returns {void}
+ */
+function updateModifierKeyState() {
+    // Get the current modifier key state
+    var nModifierState = App.modifierKeyState();
+    // Update variables that hold modifier key state
+    s_bShiftPressed = (nModifierState & 0x02000000) != 0;
+    s_bControlPressed = (nModifierState & 0x04000000) != 0;
+    s_bAltPressed = (nModifierState & 0x08000000) != 0;
+    s_bMetaPressed = (nModifierState & 0x10000000) != 0;
+}
+
+/**
+ * Checks if a QObject-like instance inherits from any of the specified type names.
+ * This is useful for determining the type of DAZ Studio objects.
+ * @param {object} oObject - The object to check. It should have an `inherits` method.
+ * @param {string[]} aTypeNames - An array of type names (strings) to check against.
+ * @returns {boolean} `true` if the object inherits from at least one of the specified types, `false` otherwise or if `oObject` is invalid.
+ */
+function inheritsType( oObject, aTypeNames )
+{
+    // If the object does not define the 'inherits' function
+    if( !oObject || typeof( oObject.inherits ) != "function" ){
+        // We are done... it is not a QObject
+        return false;
+    }
+
+    // Iterate over the list of type names
+    for( var i = 0, nTypes = aTypeNames.length; i < nTypes; i += 1 ){
+        // If the object does not inherit the 'current' type
+        if( !oObject.inherits( aTypeNames[i] ) ){
+            // Next!!
+            continue;
+        }
+
+        // Return the result
+        return true;
+    }
+
+    // Return the result
+    return false;
+};

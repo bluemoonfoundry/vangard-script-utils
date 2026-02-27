@@ -1,0 +1,174 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/**
+ * DazStringUtils.dsa
+ *
+ * String manipulation and formatting utilities for DAZ Script.
+ * Provides functions for number formatting, name manipulation, and array operations.
+ */
+
+// Include dependencies
+include("DazLoggingUtils.dsa");
+
+/**
+ * Builds a list of labels from an array of objects that have getLabel() method.
+ * @param {array} aSourceList - Array of objects with getLabel() method.
+ * @returns {array} Array of label strings.
+ */
+function buildLabelListFromArray(aSourceList) {
+    var return_list=[];
+    for (var n = 0; n < aSourceList.length; n++) {
+        return_list.push(aSourceList[n].getLabel());
+    }
+    return return_list;
+}
+
+/**
+ * Extracts the base name and numerical suffix from a name string.
+ * For example, "Object123" becomes ["Object", "123"].
+ * @param {string} sSourceName - The name to parse.
+ * @returns {array} Array with two elements: [base_name, suffix_number].
+ */
+function extractNameAndSuffix(sSourceName)
+{
+    var expr = RegExp("[0-9]+$");
+    var slice_name;
+    var suffix;
+
+    test = sSourceName.search(expr);
+    if (test == -1) {
+        suffix     = 0;
+        slice_name = sSourceName;
+    } else {
+        suffix     = sSourceName.slice(test);
+        slice_name = sSourceName.slice(0, test);
+    }
+
+    var rv=[];
+    rv[0] = slice_name;
+    rv[1] = suffix;
+
+    return rv;
+}
+
+/**
+ * Generates a new name with an incremented numerical suffix.
+ * @param {string} sSourceName - The base name to increment.
+ * @param {integer} increment_size - Amount to increment by (default: 1).
+ * @param {integer} next_scene_number - If specified, replaces the suffix with this number (ignores increment_size).
+ * @returns {string} The new name with incremented suffix.
+ */
+function getNextNumericalSuffixedName(sSourceName, increment_size, next_scene_number)
+{
+    log_info(
+        {
+            'sSourceName': sSourceName,
+            'increment_size': increment_size,
+            'next_scene_number': next_scene_number
+        }
+    );
+
+    // Get the initial base name
+    var aNameAndSuffix = extractNameAndSuffix(sSourceName);
+    var sNakedName     = aNameAndSuffix[0];
+    var iNakedSuffix   = parseInt(aNameAndSuffix[1]);
+
+    // If we specify the next_scene_number, then we just replace any existing number
+    // suffix and ignore everything else
+    if (next_scene_number == null || next_scene_number == undefined || next_scene_number == false) {
+
+        // If we specify an increment value, use it, otherwise increment by 1
+        if (increment_size == null || increment_size == undefined) {
+            increment_size = 1;
+        }
+
+        iNextSuffixValue = iNakedSuffix + increment_size;
+
+    } else {
+
+        iNextSuffixValue = next_scene_number;
+
+    }
+
+    log_info(
+        {
+            'aNameAndSuffix': JSON.stringify(aNameAndSuffix),
+            'sNakedName': sNakedName,
+            'iNakedSuffix': iNakedSuffix,
+            'iNextSuffixValue': iNextSuffixValue
+        }
+    )
+
+    new_name = sNakedName + iNextSuffixValue;
+
+    return new_name;
+}
+
+/**
+ * Get an updated scene file name that takes into account the numerical ending on the
+ * the source filename and increments it by the specified amount.
+ *
+ * For example if the input_name = xyz0, return xyz1
+ *
+ * @param {string} input_file - The scene filename to increment
+ * @param {integer} increment_size - Optional increment amount (default=1). Cannot be used with next_scene_number.
+ * @param {integer} next_scene_number - Optional next scene number to use instead of incrementing based on current scene number. Ignores increment_size if specified.
+ * @returns {string} A scene filename incremented by 1
+ */
+function incrementedSceneFileName(input_name, increment_size, next_scene_number)
+{
+
+    var scene_file_name;
+
+    if (input_name == null || input_name == undefined) {
+        scene_file_name = Scene.getFilename();
+    } else {
+        scene_file_name = input_name;
+    }
+
+    var scene_info        = DzFileInfo(scene_file_name);
+    var scene_base_name   = scene_info.completeBaseName();
+    var scene_path        = scene_info.absolutePath();
+    var scene_extension   = scene_info.suffix();
+
+    sNewBaseName = getNextNumericalSuffixedName(scene_base_name, increment_size, next_scene_number);
+
+    var resultStr = scene_path + "/" + sNewBaseName + "." + scene_extension;
+
+    return resultStr;
+
+}
+
+/**
+ * Formats a number by padding it with leading zeros to reach a specified total size.
+ * @param {number | string} input_number - The number to pad.
+ * @param {number} padding_size - The desired minimum number of digits for the output string.
+ * @returns {string} The zero-padded number as a string.
+ */
+function getZeroPaddedNumber(input_number, padding_size) {
+    var padstr="";
+    for (var x = 0; x < padding_size; x++) {
+        padstr=padstr+"0";
+    }
+    // Ensure input_number is a string for concatenation
+    var paddedNumber = (padstr + String(input_number)).slice (-(padding_size + String(input_number).length > padding_size ? String(input_number).length : padding_size));
+    var paddedNumberStr = (padstr + String(input_number));
+    paddedNumber = paddedNumberStr.slice(-(padding_size + 1));
+
+    return paddedNumber;
+}
