@@ -1,0 +1,375 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/**
+ * DazRenderUtils.dsa
+ *
+ * Rendering utilities for DAZ Script.
+ * Provides functions for batch rendering, Iray server configuration, and render execution.
+ */
+
+// Include dependencies
+include("DazCoreUtils.dsa");
+include("DazLoggingUtils.dsa");
+include("DazCameraUtils.dsa");
+include("DazStringUtils.dsa");
+
+includeDir_oFILE = DzFile( getScriptFileName() );
+
+util_path = includeDir_oFILE.path() + "/DazCoreUtils.dsa";
+include (util_path)
+
+util_path = includeDir_oFILE.path() + "/DazLoggingUtils.dsa"
+include (util_path)
+
+util_path = includeDir_oFILE.path() +"/DazCameraUtils.dsa"
+include (util_path)
+
+util_path = includeDir_oFILE.path() +"/DazStringUtils.dsa"
+include (util_path)
+
+
+
+
+/**
+ * Prepares the Iray Server Bridge configuration settings.
+ * This function configures a `DzSettings` object for Iray Bridge and applies it
+ * to the given Iray renderer if the `setBridgeConfiguration` method is available.
+ * @param {object} oIrayConfig - An object containing Iray server connection details.
+ *   Expected properties:
+ *   - `iray-protocol` (string): "http" or "https".
+ *   - `iray-server` (string): The Iray server address.
+ *   - `iray-user` (string): The username for the Iray server.
+ *   - `iray-password` (string): The password for the Iray server.
+ *   - `iray-port` (number): The port number for the Iray server.
+ * @param {DzRenderMgr} oRenderMgr - The DAZ Studio Render Manager.
+ * @param {DzRenderer} oRenderer - The Iray Renderer instance (e.g., `DzIrayRenderer`).
+ * @returns {void}
+ */
+function prepareIrayBridgeConfiguration(oIrayConfig, oRenderMgr, oRenderer) {
+
+    App.verbose("*************** oic = " + JSON.stringify(oIrayConfig));
+
+    // Define the URI components
+    var sProtocol = oIrayConfig['iray-protocol'];
+    var sServerAddress = oIrayConfig['iray-server'];
+    var sUser = oIrayConfig['iray-user'];
+    var sPass = oIrayConfig['iray-password'];
+    var iPort = oIrayConfig['iray-port'];
+
+    // Declare working variables
+    var oSettings;
+
+    // If DzIrayRenderer::setBridgeConfiguration() is available - i.e., 4.21.1.11+
+    if( oRenderer && typeof( oRenderer.setBridgeConfiguration ) == "function" ) {
+        // Create a settings object
+        oSettings = new DzSettings();
+
+        // Build the configuration settings
+        oSettings.setIntValue    ( "Connection", 0 ); // 0 typically means "NVIDIA Iray Server"
+        oSettings.setStringValue ( "Server", sServerAddress );
+        oSettings.setBoolValue   ( "Secure", sProtocol == "https" );
+        oSettings.setIntValue    ( "Port", iPort);
+        oSettings.setStringValue ( "Username", sUser);
+        oSettings.setStringValue ( "Password", sPass);
+
+        oRenderer.setBridgeConfiguration( oSettings );
+
+        log_success_event( "Prepared iray bridge configuration = " + oSettings);
+
+    } else {
+        log_warning( {"message": "oRenderer.setBridgeConfiguration is not available or renderer is null."});
+    }
+}
+
+/**
+ * Gets default local render options, setting the active renderer, current frame render, and aspect constraint.
+ * @param {DzRenderMgr} oRenderMgr - The DAZ Studio Render Manager.
+ * @param {DzCamera} [oCamera=null] - The camera to set for rendering. If null, active/viewport camera is used by `doRender`.
+ * @returns {DzRenderOptions} The configured render options.
+ */
+function getDefaultLocalRenderOptions(oRenderMgr, oCamera)
+{
+    if (!oRenderMgr) return null;
+    var oRenderer = oRenderMgr.getActiveRenderer();
+    if (!oRenderer) return null;
+
+    // Set the render options for the icon render
+    var oRenderOptions = oRenderMgr.getRenderOptions();
+    oRenderOptions.isCurrentFrameRender = true;
+    oRenderOptions.isAspectConstrained = true;
+    if (oCamera != undefined) {
+        log_debug({'message': 'Setting camera to ' + oCamera.getLabel()});
+
+        oRenderOptions.camera = oCamera;
+    }
+
+    return oRenderOptions;
+}
+
+/**
+ * Executes a local render, saving the output directly to a file.
+ * @param {DzRenderMgr} oRenderMgr - The DAZ Studio Render Manager.
+ * @param {DzRenderOptions} oRenderOptions - Pre-configured render options. Camera should be set in these options.
+ * @param {string} sRenderFile - The full path to the output image file.
+ * @param {DzCamera} oCamera - The camera to use for rendering.
+ * @returns {object | null} The response from `oRenderMgr.doRender()`, typically an object with status or error info, or null.
+ */
+function execLocalToFileRender(oRenderMgr, oRenderOptions, sRenderFile, oCamera) {
+    if (!oRenderMgr || !oRenderOptions || !oCamera) {
+        log_error({"message": "Missing required parameters (RenderManager, RenderOptions, or Camera)."});
+        return null;
+    }
+
+    oRenderOptions.camera = oCamera;
+    oRenderOptions.renderImgToId = DzRenderOptions.DirectToFile;
+    oRenderOptions.renderImgFilename = sRenderFile;
+
+    // This call doesn't seem to take all the render options into account, specifically the camera, so we have to
+    // change the camera in the scene first, then do the render. Boo!
+
+    var currentCamera = getViewportCamera();
+    if (currentCamera == null) {
+        log_failure_event("Could not locate a valid viewport camera!");
+        return;
+    }
+
+    setViewportCamera(oCamera);
+
+    var oError = oRenderMgr.doRender(oRenderOptions);
+
+    log_info(
+        {
+            "target": "local file",
+            "camera": oCamera.getLabel(),
+            "output_file": sRenderFile,
+            "status": oError
+        }
+    )
+
+    setViewportCamera(currentCamera);
+}
+
+/**
+ * Executes a local render, displaying the output in a new window.
+ * @param {DzRenderMgr} oRenderMgr - The DAZ Studio Render Manager.
+ * @param {DzRenderOptions} oRenderOptions - Pre-configured render options. Camera should be set in these options.
+ * @param {DzCamera} oCamera - The camera to use for rendering.
+ * @returns {object | null} The response from `oRenderMgr.doRender()`, or null.
+ */
+function execNewWindowRender(oRenderMgr, oRenderOptions, oCamera) {
+    if (!oRenderMgr || !oRenderOptions || !oCamera) {
+        log_error({"message": "Missing required parameters (RenderManager, RenderOptions, or Camera)."});
+        return null;
+    }
+
+    oRenderOptions.camera = oCamera;
+    oRenderOptions.renderImgToId = DzRenderOptions.NewWindow;
+
+    var oError = oRenderMgr.doRender(oRenderOptions);
+
+     log_info(
+        {
+            "target": "new window",
+            "options": oRenderOptions,
+            "status": oError
+        }
+    )
+}
+
+/**
+ * Executes a batch rendering process based on the provided configuration.
+ * It can render to local files, a new window, or an Iray Server via the bridge.
+ * Iterates through specified cameras and frames.
+ * @param {object} oRenderConfig - Configuration object for the batch render.
+ *   Expected properties:
+ *   - `cameras` (string): Camera selection mode ("all_visible", "pattern", or other for viewport).
+ *   - `priority` (number): Render job priority (for Iray Server).
+ *   - `frames` (string): Frame range (e.g., "0-10").
+ *   - `job_name_pattern` (string, optional): Pattern for naming render jobs/files.
+ *   - `output_extension` (string, optional): Output file extension.
+ * @param {string} sRenderTarget - The target for rendering: "local-to-file", "local-to-window", or "iray-server-bridge".
+ * @param {string} [sOutputBasePath=null] - The base path for output files when `sRenderTarget` is "local-to-file".
+ * @returns {void}
+ */
+function execBatchRender(oRenderConfig, sRenderTarget, sOutputBasePath)
+{
+
+    log_debug(
+       {
+          'oRenderConfig': JSON.stringify(oRenderConfig),
+          'sRenderTarget': sRenderTarget,
+          'sOutputBasePath': sOutputBasePath
+       }
+    );
+
+    // Get the render manager
+    var oRenderMgr = App.getRenderMgr();
+    var oRenderer = oRenderMgr.findRenderer( "DzIrayRenderer" );
+    var oIrayConfig = oRenderConfig['iray_config']
+
+    if (sRenderTarget == "iray-server-bridge") {
+        prepareIrayBridgeConfiguration(oIrayConfig, oRenderMgr, oRenderer);
+    }
+
+    // Render the current scene
+    var sSceneFile = Scene.getFilename();
+    if (!sSceneFile || sSceneFile.isEmpty()) {
+        log_error({'message': 'Scene is not saved. Cannot determine scene name or default output path.'});
+        return;
+    }
+    var sSceneInfo = new DzFileInfo(sSceneFile);
+    var sSceneName = sSceneInfo.completeBaseName();
+
+    // Get the list of cameras to render
+    var aCameraListActual = getValidCameraList(oRenderConfig);
+    if (aCameraListActual.length === 0) {
+        log_warning({'message': 'No valid cameras found to render based on configuration.'});
+        return;
+    }
+
+    camera_str = JSON.stringify(buildLabelListFromArray(aCameraListActual));
+    log_info({'cameras': aCameraListActual.length, 'camera_names': camera_str});
+
+    var iPriority = oRenderConfig['priority'] || 0;
+
+    var firstFrame = 0;
+    var lastFrame  = 1;
+    var frameset = oRenderConfig['frames'];
+    if (frameset != null && frameset != undefined) {
+        parts=frameset.split("-");
+        firstFrame=parseInt(parts[0].trim())
+        lastFrame=parseInt(parts[1].trim())
+    }
+
+    var frames_per_camera = Math.max(0, lastFrame - firstFrame);
+
+    var sJobNamePattern = oRenderConfig['job_name_pattern'];
+    if (sJobNamePattern == undefined || sJobNamePattern.isEmpty()) {
+        sJobNamePattern  = "%s_%c_%f";
+    }
+
+    if (sOutputBasePath == null || sOutputBasePath.isEmpty()) {
+        var parent = sSceneInfo.dir();
+        sOutputBasePath = parent.absolutePath();
+    }
+
+    var sExtension = "png";
+    if (oRenderConfig['output_extension']) {
+        sExtension = oRenderConfig['output_extension'];
+    }
+
+    log_info({'scenefile': sSceneFile, 'valid_cameras_count': aCameraListActual.length, 'target': sRenderTarget});
+
+    var render_count=0;
+
+    // Iterate over the cameras in the scene
+    for (var n = 0; n < aCameraListActual.length; n++) {
+
+        render_count = render_count + 1;
+
+        oCamera = aCameraListActual[n];
+        sCameraName = oCamera.getLabel();
+
+        log_info(
+         {
+             'camera': {
+                 'name': sCameraName,
+                 'index': n,
+                 'total': aCameraListActual.length
+             }
+         }
+        );
+
+        for (var f = firstFrame; f < lastFrame; f++) {
+            Scene.setFrame(f);
+
+            var sJobName = sJobNamePattern.replace(/%s/g, sSceneName);
+            sJobName = sJobName.replace(/%c/g, sCameraName.replace(/[^a-zA-Z0-9_-]/g, '_'));
+            sJobName = sJobName.replace(/%f/g, "" + f);
+            sJobName = sJobName.replace(/%r/g, "" + render_count);
+
+            log_info (
+                  {'camera': sCameraName,
+                   'camera_index': (n + 1) + "/" + aCameraListActual.length,
+                   'frame_index': f,
+                   'total_frames_for_camera': lastFrame,
+                   'job_name': sJobName
+                  });
+
+            var oResponse = null;
+            var oRenderOptions = getDefaultLocalRenderOptions(oRenderMgr, oCamera);
+
+            switch (sRenderTarget) {
+                case "local-to-file":
+                case "direct-file":
+                    var sRenderFile = sOutputBasePath + "/" + sJobName + "." + sExtension;
+                    oResponse = execLocalToFileRender(oRenderMgr, oRenderOptions, sRenderFile, oCamera);
+                    break;
+
+                case "local-to-window":
+                case "viewport":
+                    oResponse = execNewWindowRender(oRenderMgr, oRenderOptions, oCamera);
+                    break;
+
+                case "iray-server-bridge":
+                    if (oRenderer && typeof oRenderer.exportRenderToBridgeQueue === 'function') {
+                        oResponse = oRenderer.exportRenderToBridgeQueue(
+                            sJobName,
+                            sExtension,
+                            oCamera,
+                            oRenderOptions,
+                            iPriority
+                        );
+                    } else {
+                        log_error({ "message": "Iray renderer or exportRenderToBridgeQueue not available."});
+                    }
+                    break;
+                default:
+                    log_error(
+                        {
+                            "status": "failed",
+                            "message": "Unknown render target specified: " + sRenderTarget
+                        }
+                    );
+                    break;
+            }
+            // Declare working variable
+            var sMessage;
+
+            // If we have an error message member
+            if( oResponse != null && oResponse.hasOwnProperty( "errorMsg" ) ){
+                // Get the error message
+                sMessage = oResponse[ "errorMsg" ];
+
+                // If we have an error message
+                if( !sMessage.isEmpty() ){
+                    log_error(
+                        {"message": "Render Operation Error (" + sRenderTarget + ")",
+                        "job_name": sJobName,
+                        "error": text(sMessage)});
+                }
+            } else if (oResponse == null && sRenderTarget === "iray-server-bridge" && !(oRenderer && typeof oRenderer.exportRenderToBridgeQueue === 'function')) {
+                // Logged above
+            } else if (oResponse == null && (sRenderTarget === "local-to-file" || sRenderTarget === "local-to-window")) {
+                 log_warning({'message': 'Render operation returned null, check DAZ logs for details.', 'job_name': sJobName});
+            }
+        } // Frame list
+    } // Camera List
+
+    log_info({'status': 'completed', 'scenefile': sSceneFile});
+}

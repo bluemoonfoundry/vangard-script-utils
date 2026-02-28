@@ -1,0 +1,207 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/**
+ * DazLoggingUtils.dsa
+ *
+ * Logging and event tracking utilities for DAZ Script.
+ * Provides structured JSON logging to files with support for different log levels.
+ */
+
+// Include core utilities for modifier key state
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCoreUtils.dsa";
+include (util_path)
+
+/**
+ * Represents the log file object. Initialized by `init_log`.
+ * @type {DzFile | null}
+ */
+var log_file;
+
+/**
+ * Default source name for log entries. Can be overridden by `init_script_utils`.
+ * @type {string}
+ */
+var s_logSourceName = "_DEFAULT_";
+
+/**
+ * Retrieves the default log source name.
+ * @returns {string} The current default log source name.
+ */
+function getDefaultLogSourceName() {
+    return s_logSourceName;
+}
+
+/**
+ * Initializes the logging system by opening a log file.
+ * The global `log_file` variable will hold the `DzFile` object.
+ * @param {string} sLogFile - The path to the log file.
+ * @param {boolean} bOverwrite - If `true`, the log file will be truncated (overwritten).
+ *                               If `false`, new log entries will be appended.
+ * @returns {void}
+ */
+function init_log(sLogFile, bOverwrite) {
+
+    log_file = new DzFile(sLogFile);
+
+    var open_mode = DzFile.Append;
+
+    if (bOverwrite == true) {
+        open_mode = DzFile.Truncate;
+    }
+
+    if (log_file.open (open_mode) == false) {
+        App.writeToLog (App.MessageError, "ExtApp:DazCopilotRazor", "Failed to open event logging file: " + sLogFile, true);
+        log_file = null;
+    } else {
+        App.writeToLog (App.MessageNormal, "ExtApp:DazCopilotRazor", "Opened event logging file: " + sLogFile, true);
+    }
+}
+
+/**
+ * Closes the currently open log file if it exists.
+ * @returns {void}
+ */
+function close_log() {
+    if (log_file != null) {
+        log_file.close();
+    }
+}
+
+/**
+ * Initializes script utilities. This includes:
+ * - Setting the global log source name (`s_logSourceName`).
+ * - Initializing the log file (hardcoded to 'C:/Temp/razor.log', append mode).
+ * - Updating modifier key states.
+ * - Parsing script arguments (expected to be a JSON string in `App.scriptArgs[0]`) and logging them.
+ * @param {string} log_source_id - The identifier to use as the source for log entries.
+ * @returns {object | null} The parsed script arguments object, or `null` if parsing fails or no arguments.
+ */
+function init_script_utils(log_source_id) {
+
+    s_logSourceName = log_source_id;
+
+    init_log('C:/Temp/razor.log', false);
+
+    // If the "Action" global transient is defined, and its the correct type
+    if( typeof( Action ) != "undefined" && Action.inherits( "DzScriptAction" ) ){
+        // If the current key sequence for the action is not pressed
+        if( !App.isKeySequenceDown( Action.shortcut ) ){
+            updateModifierKeyState();
+        }
+    // If the "Action" global transient is not defined
+    } else if( typeof( Action ) == "undefined" ) {
+        updateModifierKeyState();
+    }
+
+    return getArguments()[0];
+}
+
+/**
+ * Closes resources initialized by `init_script_utils`, specifically the log file.
+ * @returns {void}
+ */
+function close_script_utils() {
+    close_log();
+}
+
+/**
+ * Logs an event to the initialized log file.
+ * The event is logged as a JSON string containing source, timestamp, event type, name, and additional info.
+ * @param {string} event_type - The type of the event (e.g., "INFO", "ERROR").
+ * @param {string} event_name - A name or category for the event.
+ * @param {object} [event_info=null] - An optional object containing additional key-value pairs to include in the log entry.
+ * @returns {void}
+ */
+function log_event(event_type, event_name, event_info) {
+    if (log_file == null || !log_file.isOpen()) {
+        return;
+    }
+
+    var base_message = {
+        'source': s_logSourceName,
+        'dtg': Date.now(),
+        'event_type': event_type,
+        'event_name': event_name
+    };
+
+    if (event_info != null && event_info != undefined) {
+        var keyset = Object.keys(event_info);
+        for (var n = 0; n < keyset.length; n++) {
+            var key = keyset[n];
+            var value = event_info[key];
+            base_message[key] = value;
+        }
+    }
+
+    log_file.writeLine(JSON.stringify(base_message));
+}
+
+/**
+ * Logs an informational event. Convenience wrapper for `log_event`.
+ * @param {object} [event_info=null] - An optional object containing additional details.
+ * @returns {void}
+ */
+function log_info(event_info) {
+    log_event("INFO", s_logSourceName, event_info);
+}
+
+/**
+ * Logs a warning event. Convenience wrapper for `log_event`.
+ * @param {object} [event_info=null] - An optional object containing additional details.
+ * @returns {void}
+ */
+function log_warning(event_info) {
+    log_event("WARNING", s_logSourceName, event_info);
+}
+
+/**
+ * Logs an error event. Convenience wrapper for `log_event`.
+ * @param {object} [event_info=null] - An optional object containing additional details.
+ * @returns {void}
+ */
+function log_error(event_info) {
+    log_event("ERROR", s_logSourceName, event_info);
+}
+
+/**
+ * Logs a debug event. Convenience wrapper for `log_event`.
+ * @param {object} [event_info=null] - An optional object containing additional details.
+ * @returns {void}
+ */
+function log_debug(event_info) {
+    log_event("DEBUG", s_logSourceName, event_info);
+}
+
+/**
+ * Logs a success event with status indicator.
+ * @param {string} message - Success message to log.
+ * @returns {void}
+ */
+function log_success_event(message) {
+    log_info ({'status':'success', 'message': message});
+}
+
+/**
+ * Logs a failure event with status indicator.
+ * @param {string} message - Failure message to log.
+ * @returns {void}
+ */
+function log_failure_event(message) {
+    log_error ({'status':'failed', 'message': message});
+}

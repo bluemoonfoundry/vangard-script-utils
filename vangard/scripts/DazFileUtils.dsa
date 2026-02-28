@@ -1,0 +1,198 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/**
+ * DazFileUtils.dsa
+ *
+ * File I/O utility functions for DAZ Script.
+ * Provides functions for reading, writing, and error handling for file operations.
+ */
+
+// Include dependencies
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCoreUtils.dsa";
+include (util_path)
+util_path = includeDir_oFILE.path() + "/DazLoggingUtils.dsa"
+include (util_path)
+
+/**
+ * Retrieves a human-readable error string for a `DzFile` object based on its error state.
+ * @param {DzFile} oFile - The `DzFile` object to get the error string from.
+ * @returns {string} A string describing the file error, or an empty string if no error.
+ */
+function getFileErrorString( oFile )
+{
+    // Initialize
+    var aResult = [];
+
+    // Based on the error type
+    switch( oFile.error() ){
+        case DzFile.NoError:
+            break;
+        case DzFile.ReadError:
+            aResult.push( "Read Error" );
+            break;
+        case DzFile.WriteError:
+            aResult.push( "Write Error" );
+            break;
+        case DzFile.FatalError:
+            aResult.push( "Fatal Error" );
+            break;
+        case DzFile.ResourceError:
+            aResult.push( "Resource Error" );
+            break;
+        case DzFile.OpenError:
+            aResult.push( "Open Error" );
+            break;
+        case DzFile.AbortError:
+            aResult.push( "Abort Error" );
+            break;
+        case DzFile.TimeOutError:
+            aResult.push( "TimeOut Error" );
+            break;
+        case DzFile.UnspecifiedError:
+            aResult.push( "Unspecified Error" );
+            break;
+        case DzFile.RemoveError:
+            aResult.push( "Remove Error" );
+            break;
+        case DzFile.RenameError:
+            aResult.push( "Rename Error" );
+            break;
+        case DzFile.PositionError:
+            aResult.push( "Position Error" );
+            break;
+        case DzFile.ResizeError:
+            aResult.push( "Resize Error" );
+            break;
+        case DzFile.PermissionsError:
+            aResult.push( "Permissions Error" );
+            break;
+        case DzFile.CopyError:
+            aResult.push( "Copy Error" );
+            break;
+    }
+
+    // Append the error string from the file object itself
+    aResult.push( oFile.errorString() );
+
+    // Return the result string, joined if multiple parts exist
+    return aResult.length > 0 ? aResult.join( ": " ) : "";
+};
+
+/**
+ * Reads data from a file as a JSON structure.
+ * @param {string} sFilename - The path to the file to read from.
+ * @returns {object} An ECMAScript Object on success, null on failure.
+ */
+function readFromFileAsJson(sFilename) {
+    // If we do not have a file path
+    if( sFilename.isEmpty() ){
+        log_failure_event("Required argument sFilename is null");
+        return null;
+    }
+
+    // Create a new file object
+    var oFile = new DzFile( sFilename );
+
+     // Open the file
+    if( !oFile.open( DzFile.ReadOnly ) ){
+        // Return failure
+       log_failure_event( sFilename + " could not be opened. " + getFileErrorString( oFile ));
+       return null;
+    }
+
+    var oContent = JSON.parse(oFile.read());
+    oFile.close();
+
+    return oContent;
+}
+
+/**
+ * Writes data (string or QByteArrayWrapper) to a specified file.
+ * @param {string} sFilename - The path to the file to write to.
+ * @param {string | QByteArrayWrapper} vData - The data to write. Can be a string or a QByteArrayWrapper-like object.
+ * @param {number} nMode - The file open mode (e.g., `DzFile.WriteOnly`, `DzFile.Append`, `DzFile.Truncate`).
+ *                         See DAZ Studio `DzFile` documentation for open modes.
+ * @returns {string} An empty string on success, or an error message string on failure.
+ */
+function writeToFile( sFilename, vData, nMode )
+{
+    // If we do not have a file path
+    if( sFilename.isEmpty() ){
+        // Return failure
+        return "Empty filename.";
+    }
+
+    // Create a new file object
+    var oFile = new DzFile( sFilename );
+
+    // If the file is already open
+    if( oFile.isOpen() ){
+        // Return failure
+        return sFilename + " is already open.";
+    }
+
+    // Open the file
+    if( !oFile.open( nMode ) ){
+        // Return failure
+        return sFilename + " could not be opened. " + getFileErrorString( oFile );
+    }
+
+    // Initialize
+    var nBytes = 0;
+
+    // Based on the type of the data
+    switch( typeof( vData ) ){
+        case "string":
+            // If we have data to write
+            if( !vData.isEmpty() ){
+                // Write the data to the file
+                nBytes = oFile.write( vData );
+            }
+            break;
+        case "object":
+            // If we have a ByteArray (checked using inheritsType for QByteArrayWrapper)
+            if( inheritsType( vData, ["QByteArrayWrapper"] )
+            && vData.length > 0 ){
+                // Write the data to the file
+                nBytes = oFile.writeBytes( vData );
+            }
+            break;
+    }
+
+    // Close the file
+    oFile.close();
+
+    // Initialize
+    var sError = "";
+
+    // If an error occured during write (nBytes < 0)
+    if( nBytes < 0 ){
+        // Provide feedback
+        sError = getFileErrorString( oFile );
+    }
+
+    // If bytes were not written (or an error occurred resulting in nBytes not being positive)
+    if( nBytes < 1 && sError.isEmpty() ){
+        // Return failure
+        return "No bytes written.";
+    }
+
+    // Return result (error string if any, otherwise empty for success)
+    return sError;
+};

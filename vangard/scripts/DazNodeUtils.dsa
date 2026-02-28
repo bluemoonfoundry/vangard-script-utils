@@ -1,0 +1,307 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/**
+ * DazNodeUtils.dsa
+ *
+ * Node and scene manipulation utilities for DAZ Script.
+ * Provides functions for selecting, deleting, and managing scene nodes.
+ */
+
+// Include dependencies
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCoreUtils.dsa";
+include (util_path)
+util_path = includeDir_oFILE.path() + "/DazLoggingUtils.dsa"
+include (util_path)
+
+
+/**
+ * Gets a list of currently selected nodes in the scene that are of type `DzBone`.
+ * Relies on `Scene.getNodeList()`.
+ * @returns {DzBone[]} An array of `DzBone` objects.
+ */
+function getSkeletonNodes() {
+    var aSelectedNodes = Scene.getNodeList();
+    var aSkeletonNodes = [];
+
+    for (var x = 0; x < aSelectedNodes.length; x++) {
+        var oSelectedNode = aSelectedNodes[x];
+        if (oSelectedNode.inherits("DzBone")) {
+            aSkeletonNodes.push (oSelectedNode);
+        }
+    }
+    return aSkeletonNodes;
+}
+
+/**
+ * Gets the root node, handling DzBone objects by returning their skeleton.
+ * @param {DzNode} oNode - The node to get the root of.
+ * @returns {DzNode} The root node or skeleton.
+ */
+function getRootNode( oNode )
+{
+    // If we have a node and it is a bone
+    if( oNode && inheritsType( oNode, ["DzBone"] ) ){
+        // We want the skeleton
+        return oNode.getSkeleton();
+    }
+
+    // Return the original node
+    return oNode;
+};
+
+/**
+ * Selects a single node in the scene by its label. All other nodes are deselected.
+ * @param {string} label - The label of the node to select.
+ * @returns {DzNode | null} The selected node if found, otherwise `null`.
+ */
+function select_node(label) {
+    var rv=null;
+    Scene.selectAllNodes(false);
+    var node   = Scene.findNodeByLabel (label);
+    if (node == null) {
+        log_warning ({"message": "Could not find requested node: " + label});
+    } else {
+        node.select();
+        rv=node;
+    }
+    return rv;
+}
+
+/**
+ * Deletes a node from the scene by its label.
+ * It first selects the node and then attempts to remove it.
+ * @param {string} label - The label of the node to delete.
+ * @returns {void}
+ */
+function delete_node(label) {
+    var rv = select_node(label);
+    if (rv != null) {
+        var valid = Scene.removeNode(rv);
+        if (!valid) {
+            log_warning({"message": "Failed to remove node: " + label});
+        }
+    }
+}
+
+/**
+ * Sets default options within a DAZ Studio settings object.
+ * Specifically, it sets "CompressOutput" to `false`.
+ * @param {DzSettings} oSettings - The DAZ Studio settings object to modify.
+ * @returns {void}
+ */
+function setDefaultOptions( oSettings )
+{
+    // Set the initial state of the compress file checkbox
+    oSettings.setBoolValue( "CompressOutput", false );
+};
+
+/**
+ * Sets required options within a DAZ Studio settings object.
+ * Sets "CompressOutput" to `false` and "RunSilent" based on `bShowOptions`.
+ * @param {DzSettings} oSettings - The DAZ Studio settings object to modify.
+ * @param {boolean} bShowOptions - If `true`, "RunSilent" is set to `false`. If `false`, "RunSilent" is set to `true`.
+ * @returns {void}
+ */
+function setRequiredOptions( oSettings, bShowOptions )
+{
+    // Set the initial state of the compress file checkbox
+    oSettings.setBoolValue( "CompressOutput", false );
+
+    // Do not to show the options (if bShowOptions is false)
+    oSettings.setBoolValue( "RunSilent", !bShowOptions );
+};
+
+/**
+ * Adds an element name to a settings object.
+ * @param {DzSettings} oSettings - The settings object to modify.
+ * @param {string} sElementSettingsKey - The key for the element settings.
+ * @param {string} sElementName - The element name to add.
+ * @returns {void}
+ */
+function setElementOption( oSettings, sElementSettingsKey, sElementName )
+{
+    // Get the (nested) settings that hold the named element
+    var oElementsSettings = oSettings.getSettingsValue( sElementSettingsKey );
+    // If the object doesn't already exist
+    if( !oElementsSettings ){
+        // Create it
+        oElementsSettings = oSettings.setSettingsValue( sElementSettingsKey );
+    }
+
+    // Declare working variable
+    var sElement;
+
+    // Initialize
+    var i = 0;
+
+    // Iterate over the element names
+    for( nElements = oElementsSettings.getNumValues(); i < nElements; i += 1 ){
+        // Get the 'current' element name
+        sElement = oElementsSettings.getValue( i );
+        // If the name is the same as the one we are adding
+        if( sElement == sElementName ){
+            // We are done...
+            return;
+        }
+    }
+
+    // Create it
+    oElementSettings = oElementsSettings.setStringValue( String( i ), sElementName );
+};
+
+/**
+ * Sets a node option in the settings object.
+ * @param {DzSettings} oSettings - The settings object to modify.
+ * @param {string} sNodeName - The node name to add.
+ * @returns {void}
+ */
+function setNodeOption( oSettings, sNodeName )
+{
+    // Set the property options for the named node
+    setElementOption( oSettings, "NodeNames", sNodeName );
+};
+
+/**
+ * Sets multiple node options in the settings object.
+ * @param {DzSettings} oSettings - The settings object to modify.
+ * @param {array} aNodeNames - Array of node names to add.
+ * @returns {void}
+ */
+function setNodeOptions( oSettings, aNodeNames )
+{
+    // Iterate over the node names array
+    for( var i = 0; i < aNodeNames.length; i += 1 ){
+        // Set the property options for the 'current' node name
+        setNodeOption( oSettings, aNodeNames[ i ] );
+    }
+};
+
+/**
+ * Call the named DAZ Action with the given settings object
+ *
+ * @param {string} sClassName - The class name of the action to call
+ * @param {object} oSettings - A dictionary of settings as key/value pairs for the action, if the action requires settings
+ *
+ */
+function triggerAction( sClassName, oSettings )
+{
+    // Get the action manager
+    var oActionMgr = MainWindow.getActionMgr();
+    // If we do not have an action manager
+    if( !oActionMgr ){
+        // We are done...
+        return;
+    }
+
+    // Find the action we want
+    var oAction = oActionMgr.findAction( sClassName );
+    // If the action was not found
+    if( !oAction ){
+
+        log_failure_event(
+             text( "The \"%1\" action could not be found." ).arg( sClassName )
+        )
+        return;
+    }
+
+    // If the action is disabled
+    if( !oAction.enabled ){
+
+        log_failure_event(
+            text( "The \"%1\" action is currently disabled." ).arg( oAction.text )
+        )
+        return;
+    }
+
+    // If we have the necessary function (4.16.1.18) and we have settings
+    if( typeof( oAction.triggerWithSettings ) == "function" && oSettings ){
+        // Trigger execution of the action with the settings
+        oAction.triggerWithSettings( oSettings );
+    } else {
+        // Trigger execution of the action
+        oAction.trigger();
+    }
+};
+
+/**
+ * Load the specified scene file with the specified mode
+ *
+ * @param {string} sSceneFile - Absolute path to the scene file to load
+ * @param {integer} iMode - Scene file mode to load in. Valid values include Scene.OpenNew and Scene.MergeFile
+ * @returns {object} oError - An error object that contains error code and message if an error occurred
+ */
+function loadScene(sSceneFile, iMode) {
+
+    oError = Scene.loadScene(sSceneFile, iMode);
+
+    return oError;
+
+}
+
+/**
+ * Displays a simple dialog with a text input field.
+ * @param {string} sCurrentText - Initial text to display in the input field.
+ * @returns {string} The text entered by the user if "OK" is clicked, otherwise an empty string.
+ */
+function getSimpleTextInput(sCurrentText)
+{
+    // Get the current style
+    var oStyle = App.getStyle();
+
+    // Create a basic dialog
+    var wDlg = new DzBasicDialog();
+
+    // Get the wrapped widget for the dialog
+    var oDlgWgt = wDlg.getWidget();
+
+    // Set the title of the dialog
+    wDlg.caption = "Add scene notes";
+
+    // Strip the space for a settings key
+    var sKey = wDlg.caption.replace( / /g, "" ) + "Dlg";
+
+    // Set an [unique] object name on the wrapped dialog widget
+    oDlgWgt.objectName = sKey;
+
+    // Create a text edit widget
+    var wTextWgt = new DzTextEdit(wDlg);
+
+    if (sCurrentText && sCurrentText.trim().length == 0) {
+        wTextWgt.text = sCurrentText;
+    } else if (sCurrentText) {
+        wTextWgt.text = sCurrentText + "\n";
+    } else {
+        wTextWgt.text = "\n";
+    }
+
+    wTextWgt.readOnly = false;
+
+    // Add the widget to the dialog
+    wDlg.addWidget( wTextWgt );
+
+    var rv = "";
+    var bOut = wDlg.exec();
+
+    // If the user accepts the dialog
+    if( bOut) {
+        rv = wTextWgt.plainText;
+    }
+
+    return rv;
+};

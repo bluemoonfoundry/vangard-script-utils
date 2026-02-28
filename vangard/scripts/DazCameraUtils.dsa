@@ -1,0 +1,187 @@
+/*
+ * Copyright (C) 2025 Blue Moon Foundry Software
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU Affero General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU Affero General Public License for more details.
+ *
+ * You should have received a copy of the GNU Affero General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
+/**
+ * DazCameraUtils.dsa
+ *
+ * Camera management utilities for DAZ Script.
+ * Provides functions for camera operations, viewport management, and camera property transfers.
+ */
+
+// Include dependencies
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazLoggingUtils.dsa"
+include (util_path)
+
+/**
+ * Transfers all properties from a source camera to a target camera.
+ * @param {DzCamera} oTargetCamera - The camera to which properties will be copied.
+ * @param {DzCamera} oSourceCamera - The camera from which properties will be copied.
+ * @returns {void}
+ */
+function transferCameraProperties(oTargetCamera, oSourceCamera) {
+    if (!oTargetCamera || !oSourceCamera || !oSourceCamera.getNumProperties || !oTargetCamera.getProperty) {
+        log_error({ "message": "Invalid camera objects provided." });
+        return;
+    }
+    var iCountProperties = oSourceCamera.getNumProperties();
+    for (var x = 0; x < iCountProperties; x++) {
+        // Basic check to ensure property exists on target
+        if (oTargetCamera.getProperty(x) && oSourceCamera.getProperty(x)) {
+            oTargetCamera.getProperty(x).setValue(oSourceCamera.getProperty(x).getValue());
+        }
+    }
+}
+
+/**
+ * Retrieves the camera associated with the active 3D viewport.
+ * Relies on `MainWindow.getViewportMgr()`.
+ * @returns {DzCamera | null} The active viewport camera, or `null` if not found.
+ */
+function getViewportCamera() {
+    var viewPortMgr = MainWindow.getViewportMgr();
+    if (!viewPortMgr) return null;
+    var activeVP = viewPortMgr.getActiveViewport();
+    if (!activeVP) return null;
+    var viewPort = activeVP.get3DViewport();
+    if (!viewPort) return null;
+    var camera = viewPort.getCamera();
+
+    return camera;
+}
+
+/**
+ * Sets the camera for the active 3D viewport.
+ * @param {DzCamera} oCamera - The camera to set as the viewport camera.
+ * @returns {DzCamera | null} The result from setting the camera.
+ */
+function setViewportCamera(oCamera) {
+    var viewPortMgr = MainWindow.getViewportMgr();
+    if (!viewPortMgr) return null;
+    var activeVP = viewPortMgr.getActiveViewport();
+    if (!activeVP) return null;
+    var viewPort = activeVP.get3DViewport();
+    if (!viewPort) return null;
+    var camera = viewPort.setCamera(oCamera.getName());
+
+    return camera;
+}
+
+/**
+ * Finds a camera in the scene by its label (name).
+ * Relies on `Scene.findCameraByLabel()`.
+ * @param {string} camera_label - The label of the camera to find.
+ * @returns {DzCamera | null} The found camera, or `null` if no camera with that label exists.
+ */
+function getNamedCamera(camera_label) {
+    return Scene.findCameraByLabel(camera_label);
+}
+
+/**
+ * Retrieves a list of "valid" cameras based on criteria defined in a render configuration object.
+ * Criteria can be "all_visible", "viewport", or a pattern (matching a label pattern).
+ * @param {object} oRenderConfig - An object containing camera selection criteria.
+ *   Expected properties:
+ *   - `cameras` (string): "all_visible", "viewport", or a regex pattern string.
+ * @returns {DzCamera[]} An array of `DzCamera` objects that meet the criteria.
+ */
+function getValidCameraList(oRenderConfig) {
+    // Get the list of cameras associated with the scene
+    var aCameraList = Scene.getCameraList();
+    var aCameraListActual = [];
+    var sCameraSelectionCriteria = oRenderConfig ? oRenderConfig['cameras'] : null;
+
+    switch (sCameraSelectionCriteria) {
+
+        case "all_visible":
+            for (var n = 0; n < aCameraList.length; n++) {
+                var oCamera = aCameraList[n];
+                var sCameraName = oCamera.getLabel();
+                if (oCamera.isVisible()) {
+                    aCameraListActual.push(oCamera);
+                }
+            }
+            break;
+        case "viewport":
+            var viewportCam = getViewportCamera();
+            if (viewportCam) {
+                aCameraListActual.push (viewportCam);
+            }
+            break;
+        default:
+            for (var n = 0; n < aCameraList.length; n++) {
+                var oCamera = aCameraList[n];
+                var sCameraName = oCamera.getLabel();
+                var match_index  = sCameraName.search(new RegExp(sCameraSelectionCriteria));
+                if (match_index != -1) {
+                    aCameraListActual.push(oCamera);
+                }
+            }
+            break;
+    }
+    return aCameraListActual;
+}
+
+/**
+ * Creates a new perspective camera (`DzBasicCamera`), names it, adds it to the scene,
+ * and positions/orients it to match the current viewport camera's view.
+ * @param {string} cameraLabelPrefix - A prefix for the new camera's label.
+ * @param {string} cameraName - The main name for the new camera.
+ * @param {string} cameraClass - A class or category string to append to the camera name.
+ * @returns {DzBasicCamera | null} The newly created camera, or `null` if a camera with the proposed name already exists or viewport camera is not found.
+ */
+function createPerspectiveCamera(cameraLabelPrefix, cameraName, cameraClass) {
+    var oNewCamera = null;
+    var sFunctionName = "createPerspectiveCamera";
+
+    var proposed_camera_name = cameraLabelPrefix + " " + cameraName + " " + cameraClass;
+    var test = Scene.findCameraByLabel(proposed_camera_name);
+    if (test == null) {
+        log_info (
+              {
+                  'camera': {
+                      'prefix': cameraLabelPrefix,
+                      'name': cameraName,
+                      'class': cameraClass,
+                      'full_name': proposed_camera_name
+                  }
+              }
+             );
+
+        oNewCamera = new DzBasicCamera();
+        oNewCamera.setLabel(proposed_camera_name);
+        Scene.addNode(oNewCamera);
+        log_info({'name': proposed_camera_name, 'status': 'success'});
+
+        var camera = getViewportCamera();
+        if (camera) {
+            var cameraToCopyCoords = camera.getFocalPoint();
+            var camPosToCopy = camera.getWSPos();
+
+            oNewCamera.setWSPos(camPosToCopy);
+            oNewCamera.aimAt(cameraToCopyCoords);
+        } else {
+            log_warning({'name': proposed_camera_name, 'status': 'partial_success', 'message': 'Viewport camera not found, new camera created at origin.'});
+        }
+
+    } else {
+        log_info({'name': proposed_camera_name, 'status': 'failed', 'message': 'Proposed camera already exists'});
+        return null;
+    }
+
+    return oNewCamera;
+}
