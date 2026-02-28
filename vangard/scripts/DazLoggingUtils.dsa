@@ -109,7 +109,15 @@ function init_script_utils(log_source_id) {
         updateModifierKeyState();
     }
 
-    return getArguments()[0];
+    args = getArguments()[0];
+    if (args == undefined) {
+        args = App.scriptArgs[0];
+	rv   = JSON.parse(args);
+    } else {
+	rv = args;
+    }
+
+    return rv;
 }
 
 /**
