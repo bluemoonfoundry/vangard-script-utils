@@ -23,7 +23,9 @@
  */
 
 // Include dependencies
-include("DazLoggingUtils.dsa");
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazLoggingUtils.dsa"
+include (util_path)
 
 /**
  * Transfers all properties from a source camera to a target camera.

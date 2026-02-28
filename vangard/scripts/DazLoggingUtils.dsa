@@ -23,7 +23,9 @@
  */
 
 // Include core utilities for modifier key state
-include("DazCoreUtils.dsa");
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCoreUtils.dsa";
+include (util_path)
 
 /**
  * Represents the log file object. Initialized by `init_log`.

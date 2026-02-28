@@ -28,6 +28,23 @@ include("DazLoggingUtils.dsa");
 include("DazCameraUtils.dsa");
 include("DazStringUtils.dsa");
 
+includeDir_oFILE = DzFile( getScriptFileName() );
+
+util_path = includeDir_oFILE.path() + "/DazCoreUtils.dsa";
+include (util_path)
+
+util_path = includeDir_oFILE.path() + "/DazLoggingUtils.dsa"
+include (util_path)
+
+util_path = includeDir_oFILE.path() +"/DazCameraUtils.dsa"
+include (util_path)
+
+util_path = includeDir_oFILE.path() +"/DazStringUtils.dsa"
+include (util_path)
+
+
+
+
 /**
  * Prepares the Iray Server Bridge configuration settings.
  * This function configures a `DzSettings` object for Iray Bridge and applies it

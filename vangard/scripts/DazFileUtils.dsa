@@ -23,8 +23,11 @@
  */
 
 // Include dependencies
-include("DazCoreUtils.dsa");
-include("DazLoggingUtils.dsa");
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazCoreUtils.dsa";
+include (util_path)
+util_path = includeDir_oFILE.path() + "/DazLoggingUtils.dsa"
+include (util_path)
 
 /**
  * Retrieves a human-readable error string for a `DzFile` object based on its error state.

@@ -23,7 +23,10 @@
  */
 
 // Include dependencies
-include("DazLoggingUtils.dsa");
+includeDir_oFILE = DzFile( getScriptFileName() );
+util_path = includeDir_oFILE.path() + "/DazLoggingUtils.dsa"
+include (util_path)
+
 
 /**
  * Builds a list of labels from an array of objects that have getLabel() method.

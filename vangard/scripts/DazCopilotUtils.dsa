@@ -54,14 +54,31 @@
  */
 
 // Include all utility modules to maintain backward compatibility
-include("DazCoreUtils.dsa");
-include("DazLoggingUtils.dsa");
-include("DazFileUtils.dsa");
-include("DazStringUtils.dsa");
-include("DazNodeUtils.dsa");
-include("DazTransformUtils.dsa");
-include("DazCameraUtils.dsa");
-include("DazRenderUtils.dsa");
+includeDir_oFILE = DzFile( getScriptFileName() );
+
+util_path = includeDir_oFILE.path() + "/DazCoreUtils.dsa";
+include (util_path)
+
+util_path = includeDir_oFILE.path() + "/DazLoggingUtils.dsa"
+include (util_path)
+
+util_path = includeDir_oFILE.path() +"/DazFileUtils.dsa"
+include (util_path)
+
+util_path = includeDir_oFILE.path() +"/DazStringUtils.dsa"
+include (util_path)
+
+util_path = includeDir_oFILE.path() +"/DazNodeUtils.dsa"
+include (util_path)
+
+util_path = includeDir_oFILE.path() +"/DazTransformUtils.dsa"
+include (util_path)
+
+util_path = includeDir_oFILE.path() +"/DazCameraUtils.dsa"
+include (util_path)
+
+util_path = includeDir_oFILE.path() +"/DazRenderUtils.dsa"
+include (util_path)
 
 /*
  * All functions from the specialized modules are now available
