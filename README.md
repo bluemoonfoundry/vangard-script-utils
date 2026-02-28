@@ -28,7 +28,7 @@ A powerful, configuration-driven command-line utility system that provides stand
 - **Extensible Architecture**: Easy to add new commands without modifying core code
 - **Type-Safe Arguments**: Automatic argument validation and type conversion
 - **Auto-Generated Documentation**: Command reference documentation generated from config
-- **DAZ Studio Integration**: Seamless execution of DAZ Studio scripts from Python
+- **DAZ Studio Integration**: Seamless execution of DAZ Studio scripts via subprocess or a high-performance [Script Server plugin](https://github.com/bluemoonfoundry/vangard-daz-script-server)
 - **Pro Mode**: Modern, dark-themed web interface with dynamic forms and real-time feedback
 
 ## Architecture
@@ -107,8 +107,8 @@ A powerful, configuration-driven command-line utility system that provides stand
 2. Interface layer parses input and passes to core framework
 3. Framework loads corresponding command class from config.yaml
 4. Command class processes arguments and converts to JSON
-5. Command spawns DAZ Studio subprocess with script path and JSON args
-6. DAZ Studio script executes operation and returns results
+5. Command executes via DAZ Studio subprocess (default) or sends REST request to Script Server plugin
+6. DAZ Studio script executes operation and returns results (standard output or JSON response)
 
 ## Prerequisites
 
@@ -158,8 +158,11 @@ A powerful, configuration-driven command-line utility system that provides stand
      - macOS: `/Applications/DAZ 3D/DAZStudio4 64-bit/DAZStudio.app/Contents/MacOS/DAZStudio`
    - `DAZ_ARGS`: Optional additional arguments to pass to DAZ Studio
 
-   **DAZ Script Server mode** (requires the [DAZ Script Server plugin](https://github.com/bluemoonfoundry/vangard-daz-script-server)
-   - `DAZ_SCRIPT_SERVER_ENABLED`: Set to `true`, `1`, or `yes` to use the REST API instead of spawning a subprocess. Default: `false`
+   **DAZ Script Server mode** (optional integration):
+   Available from a separate repository: [vangard-daz-script-server](https://github.com/bluemoonfoundry/vangard-daz-script-server).
+   The Script Server is compiled as a DAZ Studio plugin and must be started within DAZ Studio in order for the scripts to connect to it. This mode provides a high-performance REST API interface.
+
+   - `DAZ_SCRIPT_SERVER_ENABLED`: Set to `true` in your `.env` file to enable the Script Server interface instead of spawning subprocesses. Default: `false`
    - `DAZ_SCRIPT_SERVER_HOST`: Hostname or IP of the DAZ Script Server. Default: `127.0.0.1`
    - `DAZ_SCRIPT_SERVER_PORT`: Port of the DAZ Script Server. Default: `18811`
 
