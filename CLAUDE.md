@@ -17,7 +17,7 @@ pip install -e .
 pip install -e ".[dev]"
 ```
 
-This creates console scripts: `vangard`, `vangard-cli`, `vangard-interactive`, `vangard-server`, `vangard-gui`
+This creates console scripts: `vangard`, `vangard-cli`, `vangard-interactive`, `vangard-server`, `vangard-gui`, `vangard-pro`
 
 ### Running Tests
 ```bash
@@ -31,7 +31,7 @@ pytest tests/ -m command        # Individual command tests
 pytest tests/ -m "not slow"     # Exclude slow tests
 
 # Run tests in a specific directory
-pytest tests/commands/          # All command tests (122 tests)
+pytest tests/commands/          # All command tests (137 tests)
 pytest tests/unit/              # Unit tests (39 tests)
 pytest tests/integration/       # Integration tests (8 tests)
 
@@ -87,22 +87,24 @@ Note: The script generates `config_reference.md`, not `ARGS.md`. Both files may 
    - **Interactive** (`interactive.py`): Shell with prompt-toolkit, command completion, and history
    - **Server** (`server.py`): FastAPI web server with dynamically generated REST endpoints
    - **GUI** (`gui.py`): Simple graphical interface
+   - **Pro** (`pro.py`): Modern web interface with dark theme, dynamic forms, and real-time feedback
 
 ### Command Execution Flow
 
 1. User runs command via any interface: `vangard-cli [command] [args]` or `python -m vangard.cli [command] [args]`
-2. Interface layer (`cli.py`, `interactive.py`, `server.py`, or `gui.py`) loads config and builds parser
+2. Interface layer (`cli.py`, `interactive.py`, `server.py`, `gui.py`, or `pro.py`) loads config and builds parser
 3. Parser identifies command and its associated Python class from `config.yaml`
 4. Command class instantiated, `process()` method called
-5. `BaseCommand.exec_remote_script()` spawns DAZ Studio subprocess
-6. Python args converted to JSON, passed to .dsa script via `-scriptArg`
-7. DAZ Studio executes the .dsa script with provided arguments
+5. `BaseCommand.exec_remote_script()` determines execution mode:
+   - **Subprocess mode** (default): Spawns DAZ Studio with script path and JSON args via `-scriptArg`
+   - **Server mode**: Sends POST request to DAZ Script Server plugin at `/execute` endpoint
+6. DAZ Studio executes the .dsa script with provided arguments
 
 ### Test Organization
 
 ```
 tests/
-├── commands/         # 122 tests - One test file per command class
+├── commands/         # 137 tests - One test file per command class
 ├── unit/            # 39 tests - Core framework and utility tests
 ├── integration/     # 8 tests - Cross-component integration tests
 ├── contract/        # Contract/interface tests
@@ -112,7 +114,7 @@ tests/
 └── conftest.py     # Pytest configuration and shared fixtures
 ```
 
-The test suite totals 164 automated tests. E2E and manual tests are excluded from default runs.
+The test suite totals 179 automated tests. E2E and manual tests are excluded from default runs.
 
 ### Key Base Classes
 
@@ -120,8 +122,8 @@ The test suite totals 164 automated tests. E2E and manual tests are excluded fro
 - All command classes inherit from this abstract base class
 - `__init__(parser, config)`: Initializes with optional parser and config references
 - `process(args)`: Main execution method that subclasses can override for custom behavior. Default implementation calls `exec_default_script()`
-- `exec_default_script(args)`: Executes .dsa script with the same name as the command class
-- `exec_remote_script(script_name, script_vars, daz_command_line)`: Static method that spawns DAZ Studio subprocess with specified script and JSON arguments
+- `exec_default_script(args)`: Convenience method that calls `exec_remote_script()` with a script name matching the class name
+- `exec_remote_script(script_name, script_vars, daz_command_line)`: Static method that executes scripts via subprocess or DAZ Script Server based on `DAZ_SCRIPT_SERVER_ENABLED` environment variable
 - `to_dict(args, exclude)`: Static method that converts argparse.Namespace to dict, automatically excluding framework keys ('command', 'class_to_run')
 
 **Important**: When creating a new command, you typically only need to create the class and the .dsa script. The default `process()` implementation handles everything unless you need custom Python-side logic.
@@ -129,8 +131,19 @@ The test suite totals 164 automated tests. E2E and manual tests are excluded fro
 ## Environment Setup
 
 Required environment variables (typically in `.env` file):
+
+**Subprocess Mode (Default)**:
 - `DAZ_ROOT`: Absolute path to DAZ Studio executable
+  - Windows: `C:/Program Files/DAZ 3D/DAZStudio4/DAZStudio.exe`
+  - macOS: `/Applications/DAZ 3D/DAZStudio4 64-bit/DAZStudio.app/Contents/MacOS/DAZStudio`
 - `DAZ_ARGS`: Optional additional arguments for DAZ Studio
+
+**DAZ Script Server Mode (Optional)**:
+- `DAZ_SCRIPT_SERVER_ENABLED`: Set to `true` to enable server mode (default: `false`)
+- `DAZ_SCRIPT_SERVER_HOST`: Server host (default: `127.0.0.1`)
+- `DAZ_SCRIPT_SERVER_PORT`: Server port (default: `18811`)
+
+Note: DAZ Script Server is a separate plugin available at https://github.com/bluemoonfoundry/vangard-daz-script-server. When enabled, commands are sent as POST requests to `http://<host>:<port>/execute` with JSON payload containing `scriptFile` (absolute path) and `args` (JSON object) instead of spawning DAZ Studio subprocesses.
 
 ## Running the Application
 
@@ -152,6 +165,10 @@ vangard server
 # GUI mode
 vangard-gui
 vangard gui
+
+# Pro Mode - modern web interface (runs on http://127.0.0.1:8000)
+vangard-pro
+vangard pro
 ```
 
 Alternative (without installation):
@@ -160,6 +177,7 @@ python -m vangard.cli [command] [args]
 python -m vangard.interactive
 python -m vangard.server
 python -m vangard.gui
+python -m vangard.pro
 # or
 python -m vangard.main cli [command] [args]
 ```
@@ -209,6 +227,15 @@ python -m vangard.main cli [command] [args]
 - Python command classes: `CommandNameSU` (suffix "SU" for Script Utility)
 - DSA script files: `CommandNameSU.dsa` (matches class name)
 - CLI command names: Use kebab-case (e.g., `load-scene`, `batch-render`)
+
+## Pro Mode Static Files
+
+Pro mode serves static files from `vangard/static/`:
+- `index.html`: Main Pro interface
+- `css/styles.css`: Styling and theme definitions
+- `js/app.js`: Frontend JavaScript, including command icons and form generation
+
+These files are automatically included via `package_data` in setup.py and served by `vangard/pro.py` using FastAPI's static file mounting. To customize the Pro interface appearance or add command icons, edit these files. See [PRO_MODE.md](PRO_MODE.md) for detailed customization instructions.
 
 ## Testing Notes
 

@@ -17,6 +17,9 @@ commands:
         nargs: "?"  # Makes 'command_name' optional
         default: null
         help: "The specific command to get help for."
+        ui:
+          widget: "text"
+          placeholder: "e.g., load-scene, batch-render"
         
   - name: "action"
     class: "vangard.commands.ExecGenericActionSU.ExecGenericActionSU"
@@ -27,11 +30,17 @@ commands:
         type: "str"
         required: true
         help: "Class name of the action to execute"
+        ui:
+          widget: "text"
+          placeholder: "e.g., DzIrayRender, DzFileIOAction"
       - names: ["-s", "--settings"]
         dest: "settings"
         type: "str"
         default: null
         help: "Settings for the action as a series of key=value pairs separated by commas"
+        ui:
+          widget: "text"
+          placeholder: "key1=value1,key2=value2"
 
   - name: "saveas"
     class: "vangard.commands.CopyCurerentSceneFileSU.CopyCurrentSceneFileSU"
@@ -42,6 +51,11 @@ commands:
         type: "str"
         required: true
         help: "Path to save a copy of the current scene file to"
+        ui:
+          widget: "file-picker"
+          file_type: "file"
+          extensions: [".duf"]
+          mode: "save"
 
   - name: "listproducts"
     class: "vangard.commands.ListProductsMetadataSU.ListProductsMetadataSU"
@@ -52,6 +66,11 @@ commands:
         type: "str"
         required: true
         help: "Path to save output to"
+        ui:
+          widget: "file-picker"
+          file_type: "file"
+          extensions: [".json", ".txt"]
+          mode: "save"
 
   - name: "load-scene"
     class: "vangard.commands.LoadMergeSU.LoadMergeSU"
@@ -62,11 +81,17 @@ commands:
         type: "str"
         required: true
         help: "Path to scene file to load"
+        ui:
+          widget: "file-picker"
+          file_type: "file"
+          extensions: [".duf", ".dsx", ".dsf"]
       - names: ["-m", "--merge"]
         dest: "merge"
         action: "store_true"
         default: false
         help: "If specified, merge the new scene into the current scene instead of replacing."
+        ui:
+          widget: "checkbox"
 
   - name: "lora-trainer-prep"
     class: "vangard.commands.SingleSceneRendererSU.SingleSceneRendererSU"
@@ -77,11 +102,18 @@ commands:
         type: "str"
         required: true
         help: "A glob pattern that identifies the scene files to load. Each scene file should include a single model which has the hair and clothing applied"
+        ui:
+          widget: "text"
+          placeholder: "e.g., /path/to/scenes/*.duf"
       - names: ["lora_trainer_config"]
         dest: "lora_trainer_config"
         type: "str"
         required: true
         help: "Path to config file defining the render matrix of shots x poses x expressions"
+        ui:
+          widget: "file-picker"
+          file_type: "file"
+          extensions: [".json", ".yaml", ".yml"]
 
   - name: "save-content-item"
     class: "vangard.commands.SaveSelectedContentSU.SaveSelectedContentSU"
@@ -92,6 +124,8 @@ commands:
         type: "str"
         required: true
         help: "Location to save content item to"
+        ui:
+          widget: "folder-picker"
 
   - name: "save-subset"
     class: "vangard.commands.SaveSceneSubsetSU.SaveSceneSubsetSU"
@@ -102,16 +136,26 @@ commands:
         type: "str"
         required: true
         help: "Location to save content item to"
+        ui:
+          widget: "file-picker"
+          file_type: "file"
+          extensions: [".duf"]
+          mode: "save"
       - names: ["-d", "--directory"]
         dest: "directory"
         type: "str"
         default: null
         help: "Directory to store the subset file in"
+        ui:
+          widget: "folder-picker"
       - names: ["-c", "--category"]
         dest: "category"
         type: "str"
         default: ""
         help: "Category to associate subset with"
+        ui:
+          widget: "text"
+          placeholder: "e.g., Props, Characters, Lights"
 
   - name: "scene-render"
     class: "vangard.commands.SingleSceneRendererSU.SingleSceneRendererSU"
@@ -122,11 +166,20 @@ commands:
         type: "str"
         default: null
         help: "Name of the scene file to load."
+        ui:
+          widget: "file-picker"
+          file_type: "file"
+          extensions: [".duf", ".dsx"]
       - names: ["-o", "--output-file"]
         dest: "output_file"
         type: "str"
         default: null
         help: "Path to output file to save to"
+        ui:
+          widget: "file-picker"
+          file_type: "file"
+          extensions: [".png", ".jpg", ".tif", ".exr"]
+          mode: "save"
 
   - name: "drop-object"
     class: "vangard.commands.DropObjectSU.DropObjectSU"
@@ -137,11 +190,23 @@ commands:
         type: "str"
         required: true
         help: "Label of the object to be dropped"
+        ui:
+          widget: "text"
+          placeholder: "Object to drop"
+        autocomplete:
+          source: "scene-nodes"
+          types: ["prop", "figure"]
       - names: ["target_node"]
         dest: "target_node"
         type: "str"
         required: true
         help: "Label of the object to be dropped onto"
+        ui:
+          widget: "text"
+          placeholder: "Target surface/object"
+        autocomplete:
+          source: "scene-nodes"
+          types: ["prop", "figure"]
 
   - name: "rotate-random"
     class: "vangard.commands.CharacterRotateAndRenderSU.CharacterRotateAndRenderSU"
@@ -152,11 +217,20 @@ commands:
         type: "str"
         required: true
         help: "Label of the object to rotate prior to rendering"
+        ui:
+          widget: "text"
+          placeholder: "e.g., Genesis9, Camera, Chair"
       - names: ["lower"]
         dest: "lower"
         type: "int"
         default: 0
         help: "Starting rotation (in degrees)"
+        ui:
+          widget: "slider"
+          min: 0
+          max: 360
+          step: 15
+          show_value: true
 
   - name: "rotate-render"
     class: "vangard.commands.CharacterRotateAndRenderSU.CharacterRotateAndRenderSU"
@@ -167,31 +241,58 @@ commands:
         type: "str"
         required: true
         help: "Label of the object to rotate prior to rendering"
+        ui:
+          widget: "text"
+          placeholder: "e.g., Genesis9, Camera, Chair"
+        autocomplete:
+          source: "scene-nodes"
+          types: ["figure", "prop", "camera"]
       - names: ["lower"]
         dest: "lower"
         type: "int"
         default: 0
         help: "Starting rotation (in degrees)"
+        ui:
+          widget: "slider"
+          min: 0
+          max: 360
+          step: 15
+          show_value: true
       - names: ["upper"]
         dest: "upper"
         type: "int"
         default: 180
         help: "Ending rotation (in degrees). rotation-start must be smaller than rotation-end"
+        ui:
+          widget: "slider"
+          min: 0
+          max: 360
+          step: 15
+          show_value: true
       - names: ["slices"]
         dest: "slices"
         type: "int"
         default: null
         help: "How many rotations between start and end to rotate. If set to zero, only render, do not rotate."
+        ui:
+          widget: "spinner"
+          min: 0
+          max: 72
+          step: 1
       - names: ["-o", "--output-file"]
         dest: "output_file"
         type: "str"
         default: null
         help: "Absolute path to directory to render images in. Default is to generate one from the scene file name."
+        ui:
+          widget: "folder-picker"
       - names: ["-s", "--skip-render"]
         dest: "skip_render"
         action: "store_true"
         default: false
         help: "Flag whether to render or the rotated character or not. Setting this flag skips the rendering step."
+        ui:
+          widget: "checkbox"
 
   - name: "transform-copy"
     class: "vangard.commands.CopyTransformObjectSU.CopyTransformObjectSU"
@@ -202,27 +303,45 @@ commands:
         type: "str"
         required: true
         help: "Node to translate from"
+        ui:
+          widget: "text"
+          placeholder: "Source node name"
+        autocomplete:
+          source: "scene-nodes"
       - names: ["target_node"]
         dest: "target_node"
         type: "str"
         required: true
         help: "Node to translate to"
+        ui:
+          widget: "text"
+          placeholder: "Target node name"
+        autocomplete:
+          source: "scene-nodes"
       - names: ["-r", "--rotate"]
         dest: "rotate"
         action: "store_true"
         help: "Apply the rotation transform"
+        ui:
+          widget: "checkbox"
       - names: ["-t", "--translate"]
         dest: "translate"
         action: "store_true"
         help: "Apply the translation transform"
+        ui:
+          widget: "checkbox"
       - names: ["-s", "--scale"]
         dest: "scale"
         action: "store_true"
         help: "Apply the scaling transform"
+        ui:
+          widget: "checkbox"
       - names: ["-a", "--all"]
         dest: "all"
         action: "store_true"
         help: "Apply rotation, translation, and scaling trasforms"
+        ui:
+          widget: "checkbox"
 
   - name: "create-cam"
     class: "vangard.commands.CreateBasicCameraSU.CreateBasicCameraSU"
@@ -233,16 +352,28 @@ commands:
         type: "str"
         required: true
         help: "Name of the camera"
+        ui:
+          widget: "text"
+          placeholder: "e.g., MainCamera, CloseUp"
       - names: ["cam_class"]
         dest: "cam_class"
         type: "str"
         required: true
         help: "Class (type) of camera"
+        ui:
+          widget: "select"
+          choices:
+            - value: "PerspectiveCamera"
+              label: "Perspective Camera"
+            - value: "OrthographicCamera"
+              label: "Orthographic Camera"
       - names: ["-f", "--focus"]
         dest: "focus"
         action: "store_true"
         default: false
         help: "If true, turn DOF on the new camera"
+        ui:
+          widget: "checkbox"
 
   - name: "create-group"
     class: "vangard.commands.CreateGroupNodeSU.CreateGroupNodeSU"
@@ -253,6 +384,9 @@ commands:
         type: "str"
         required: true
         help: "Name of the new group."
+        ui:
+          widget: "text"
+          placeholder: "e.g., Furniture, Props, Background"
 
   - name: "copy-camera"
     class: "vangard.commands.CopyNamedCameraToCurrentCameraSU.CopyNamedCameraToCurrentCameraSU"
@@ -263,11 +397,23 @@ commands:
         type: "str"
         default: null
         help: "Camera to copy from"
+        ui:
+          widget: "text"
+          placeholder: "Source camera name"
+        autocomplete:
+          source: "scene-nodes"
+          types: ["camera"]
       - names: ["-t", "--target-camera"]
         dest: "target_camera"
         type: "str"
         default: null
         help: "Camera to copy to (optional)"
+        ui:
+          widget: "text"
+          placeholder: "Target camera name (optional)"
+        autocomplete:
+          source: "scene-nodes"
+          types: ["camera"]
 
   - name: "apply-pose"
     class: "vangard.commands.ApplyGenericPoseSU.ApplyGenericPoseSU"
@@ -278,11 +424,21 @@ commands:
         type: "str"
         required: true
         help: "Absolute path to the pose file to be applied"
+        ui:
+          widget: "file-picker"
+          file_type: "file"
+          extensions: [".duf", ".dsf", ".pz2"]
       - names: ["-t", "--target-node"]
         dest: "target_node"
         type: "str"
         default: null
         help: "Label of the node to apply the pose to. If not specified, apply to the currently selected node."
+        ui:
+          widget: "text"
+          placeholder: "Target node name (optional)"
+        autocomplete:
+          source: "scene-nodes"
+          types: ["figure"]
 
   - name: "inc-scene"
     class: "vangard.commands.SceneRollerSU.SceneRollerSU"
@@ -293,11 +449,21 @@ commands:
         type: "int"
         default: null
         help: "If specified, replace the numeric suffix at the end of the scene file name with the given number (or add it if one doesn't exist)."
+        ui:
+          widget: "spinner"
+          min: 0
+          max: 9999
+          step: 1
       - names: ["-i", "--increment"]
         dest: "increment"
         type: "int"
         default: 1
         help: "If specified, increment the scene file suffix by the given amount (default = 1)."
+        ui:
+          widget: "spinner"
+          min: 1
+          max: 100
+          step: 1
 
   - name: "product-list"
     class: "vangard.commands.ListSceneProductsSU.ListSceneProductsSU"
@@ -308,16 +474,25 @@ commands:
         type: "str"
         default: "C:/Temp/products.json"
         help: "File to write output information to"
+        ui:
+          widget: "file-picker"
+          file_type: "file"
+          extensions: [".json"]
+          mode: "save"
       - names: ["-n", "--node-context"]
         dest: "node_context"
         action: "store_true"
         default: false
         help: "If specified, present the output in the context of nodes. Otherwise the default is to present output in the context of products."
+        ui:
+          widget: "checkbox"
       - names: ["-s", "--selected-only"]
         dest: "selected_only"
         action: "store_true"
         default: false
         help: "Only identify products for the currently selected node."
+        ui:
+          widget: "checkbox"
 
   - name: "batch-render"
     class: "vangard.commands.BatchRenderSU.BatchRenderSU"
@@ -328,66 +503,113 @@ commands:
         type: "str"
         default: "_"
         help: "Pattern of scene files to load, including glob support. See README for examples"
+        ui:
+          widget: "text"
+          placeholder: "e.g., /path/to/scenes/*.duf"
       - names: ["-o", "--output-path"]
         dest: "output_path"
         type: "str"
         default: null
         help: "Path to directory where output files are to be written. If not specified, use the location of the scene file."
+        ui:
+          widget: "folder-picker"
       - names: ["-t", "--target"]
         dest: "target"
         type: "str"
         default: "direct-file"
         help: "Target of the render. Allowed values are local-to-file, local-to-window, or iray-server-bridge"
+        ui:
+          widget: "select"
+          choices:
+            - value: "direct-file"
+              label: "Direct to File (Local)"
+            - value: "local-to-file"
+              label: "Local to File"
+            - value: "local-to-window"
+              label: "Local to Window"
+            - value: "iray-server-bridge"
+              label: "iRay Server Bridge"
       - names: ["-r", "--resolution"]
         dest: "resolution"
         type: "str"
         default: null
         help: "Resolution to render, overriding the resolution of the scene file, in WxH format (e.g. 1920x1080)"
+        ui:
+          widget: "text"
+          placeholder: "e.g., 1920x1080, 3840x2160"
       - names: ["-c", "--cameras"]
         dest: "cameras"
         type: "str"
         default: null
         help: "Cameras to render for. Can be one of 'all_visible', 'viewport', or a pattern that maps to one or more visible cameras"
+        ui:
+          widget: "text"
+          placeholder: "e.g., all_visible, viewport, Camera*"
       - names: ["-j", "--job-name-pattern"]
         dest: "job_name_pattern"
         type: "str"
         default: null
         help: "Pattern to use for naming job names or render output files. In the pattern, %s refers to the scene name, %c the camera name, %f the frame number, and %r the render count"
+        ui:
+          widget: "text"
+          placeholder: "e.g., %s_%c_frame%f"
       - names: ["-f", "--frames"]
         dest: "frames"
         type: "str"
         default: null
         help: "Frames to render. Comma-separated list of frames that can include ranges and range patterns. See README for full detail and example."
+        ui:
+          widget: "text"
+          placeholder: "e.g., 1,5,10-20"
       - names: ["--iray-server"]
         dest: "iray_server"
         type: "str"
         default: "127.0.0.1"
         help: "For target iray-server the IP address or hostname of the iRay server/master to use."
+        ui:
+          widget: "text"
+          placeholder: "IP address or hostname"
       - names: ["--iray-protocol"]
         dest: "iray_protocol"
         type: "str"
         default: "http"
         help: "Sets the http protocol to use. Allowed values are http or https."
+        ui:
+          widget: "select"
+          choices: ["http", "https"]
       - names: ["--iray-port"]
         dest: "iray_port"
         type: "str"
         default: "9090"
         help: "For target iray-server the TCP port of the iRay server/master."
+        ui:
+          widget: "text"
+          placeholder: "Port number"
       - names: ["--iray-user"]
         dest: "iray_user"
         type: "str"
         default: null
         help: "For target iray-server the username to connect to the iRay server/master. Must be specified here or in config file specified by --iray-config-file"
+        ui:
+          widget: "text"
+          placeholder: "Username"
       - names: ["--iray-password"]
         dest: "iray_password"
         type: "str"
         default: null
         help: "For target iray-server the password to connect to the iRay server/master. Must be specified here or in config file specified by --iray-config-file"
+        ui:
+          widget: "text"
+          placeholder: "Password"
       - names: ["--iray-config-file"]
         dest: "iray_config_file"
         type: "str"
         default: null
         help: "For target iray-server the configuration options file to use for iRay server/master configuration. Values in this file can be overridden by additional command line arguments"
+        ui:
+          widget: "file-picker"
+          file_type: "file"
+          extensions: [".json", ".yaml", ".yml"]
 
   - name: "save-viewport"
     class: "vangard.commands.SaveViewportSU.SaveViewportSU"
@@ -398,26 +620,46 @@ commands:
         type: "str"
         required: true
         help: "Output file path root (without extension). Frame number and extension will be appended."
+        ui:
+          widget: "file-picker"
+          file_type: "file"
+          mode: "save"
       - names: ["-c", "--view-camera"]
         dest: "view_camera"
         type: "str"
         default: null
         help: "Name of the camera to set in the viewport before capturing. If not specified, uses the current viewport camera."
+        ui:
+          widget: "text"
+          placeholder: "Camera name (optional)"
       - names: ["-e", "--image-format"]
         dest: "image_format"
         type: "str"
         default: "png"
         help: "Image file format/extension (e.g. png, jpg). Default is png."
+        ui:
+          widget: "select"
+          choices: ["png", "jpg", "tif", "bmp"]
       - names: ["-s", "--frame-start"]
         dest: "frame_start"
         type: "int"
         default: null
         help: "First frame to capture. Defaults to the current scene frame."
+        ui:
+          widget: "spinner"
+          min: 0
+          max: 10000
+          step: 1
       - names: ["-n", "--frame-end"]
         dest: "frame_end"
         type: "int"
         default: null
         help: "End frame (exclusive) for capture range. Defaults to frame_start + 1 (single frame)."
+        ui:
+          widget: "spinner"
+          min: 0
+          max: 10000
+          step: 1
 
   - name: "face-render-lora"
     class: "vangard.commands.FaceRenderLoraSU.FaceRenderLoraSU"
@@ -428,38 +670,73 @@ commands:
         type: "str"
         default: "y:/ai/charflow/output/face_lora/"
         help: "Directory to write rendered images to."
+        ui:
+          widget: "folder-picker"
       - names: ["-p", "--file-prefix"]
         dest: "file_prefix"
         type: "str"
         default: "face"
         help: "Filename prefix for output images. Angle label and extension are appended."
+        ui:
+          widget: "text"
+          placeholder: "e.g., face, portrait, headshot"
       - names: ["-W", "--wid"]
         dest: "wid"
         type: "int"
         default: 768
         help: "Render width in pixels."
+        ui:
+          widget: "spinner"
+          min: 64
+          max: 4096
+          step: 64
       - names: ["-H", "--height"]
         dest: "height"
         type: "int"
         default: 768
         help: "Render height in pixels."
+        ui:
+          widget: "spinner"
+          min: 64
+          max: 4096
+          step: 64
       - names: ["-d", "--camera-distance"]
         dest: "camera_distance"
         type: "int"
         default: 80
         help: "Camera distance from the face center in DAZ scene units (cm)."
+        ui:
+          widget: "slider"
+          min: 30
+          max: 200
+          step: 5
+          show_value: true
       - names: ["-y", "--face-y-offset"]
         dest: "face_y_offset"
         type: "int"
         default: 5
         help: "Vertical offset from the head bone origin toward eye/nose level."
+        ui:
+          widget: "slider"
+          min: -20
+          max: 20
+          step: 1
+          show_value: true
       - names: ["-n", "--node-label"]
         dest: "node_label"
         type: "str"
         default: null
         help: "Label of the figure node to target. If not specified, the first skeleton in the scene is used."
+        ui:
+          widget: "text"
+          placeholder: "Figure node name (optional)"
+        autocomplete:
+          source: "scene-nodes"
+          types: ["figure"]
       - names: ["-t", "--test-mode"]
         dest: "test_mode"
         action: "store_true"
         default: false
         help: "If set, show a message box at each angle instead of rendering."
+        ui:
+          widget: "checkbox"
