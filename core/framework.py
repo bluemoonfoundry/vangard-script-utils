@@ -1,12 +1,32 @@
 # core/framework.py
 import argparse
 import os
+import urllib.request
 import yaml
 import importlib
 import sys
 from typing import Any, Dict, List
 
 TYPE_MAP = {"str": str, "int": int, "float": float}
+
+def _verify_script_server_connection():
+    """
+    Attempt to reach the DAZ Script Server /status endpoint.
+    Prints a diagnostic message and exits if the server is unreachable.
+    """
+    host = os.getenv("DAZ_SCRIPT_SERVER_HOST", "127.0.0.1")
+    port = os.getenv("DAZ_SCRIPT_SERVER_PORT", "18811")
+    url = f"http://{host}:{port}/status"
+    try:
+        with urllib.request.urlopen(url, timeout=5):
+            pass
+    except Exception:
+        print(f"\nError: Cannot connect to DAZ Script Server at {host}:{port}.")
+        print("Please check:")
+        print("  1. DAZ Studio is running.")
+        print("  2. The Script Server plugin is active inside DAZ Studio.")
+        print(f"  3. The server is configured to listen on {host}:{port}.")
+        sys.exit(1)
 
 def apply_startup_flags(argv=None):
     """
@@ -18,6 +38,7 @@ def apply_startup_flags(argv=None):
     known, remaining = p.parse_known_args(argv)
     if known.enable_script_server:
         os.environ['DAZ_SCRIPT_SERVER_ENABLED'] = 'true'
+        _verify_script_server_connection()
     return remaining
 
 def load_config(config_file: str = "config.yaml") -> Dict[str, Any]:

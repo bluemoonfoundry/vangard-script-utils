@@ -15,6 +15,7 @@ A powerful, configuration-driven command-line utility system that provides stand
   - [Server Mode](#server-mode)
   - [GUI Mode](#gui-mode)
   - [Pro Mode](#pro-mode)
+- [DAZ Script Server](#daz-script-server)
 - [Available Commands](#available-commands)
 - [Adding New Commands](#adding-new-commands)
 - [Development](#development)
@@ -29,6 +30,7 @@ A powerful, configuration-driven command-line utility system that provides stand
 - **Type-Safe Arguments**: Automatic argument validation and type conversion
 - **Auto-Generated Documentation**: Command reference documentation generated from config
 - **DAZ Studio Integration**: Seamless execution of DAZ Studio scripts via subprocess or a high-performance [Script Server plugin](https://github.com/bluemoonfoundry/vangard-daz-script-server)
+- **Smart Autocomplete**: Scene-aware autocomplete in Interactive and Pro modes (requires Script Server)
 - **Pro Mode**: Modern, dark-themed web interface with dynamic forms and real-time feedback
 
 ## Architecture
@@ -52,6 +54,7 @@ A powerful, configuration-driven command-line utility system that provides stand
 ┌─────────────────────────────────────────────────────────────┐
 │              core/framework.py (Core Engine)                 │
 │  ┌─────────────────────────────────────────────────────┐   │
+│  │ apply_startup_flags() - Processes CLI startup flags │   │
 │  │ load_config()    - Loads config.yaml                │   │
 │  │ build_parser()   - Creates argparse from config     │   │
 │  │ load_class()     - Dynamically imports command class│   │
@@ -76,30 +79,29 @@ A powerful, configuration-driven command-line utility system that provides stand
 └────────────────────────┬────────────────────────────────────┘
                          │
                          ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Subprocess: DAZ Studio Launch                   │
-│  DAZ Studio + scriptArg (JSON args) + .dsa script path      │
-└────────────────────────┬────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│  Execution Mode (selected by DAZ_SCRIPT_SERVER_ENABLED env var)       │
+│                                                                        │
+│  Subprocess (default)            │  DAZ Script Server                 │
+│  DAZ Studio launched with        │  POST /execute to running server   │
+│  -scriptArg (JSON) + .dsa path   │  {"scriptFile": "...", "args": {}} │
+└──────────────────────────────────────────────────────────────────────┘
                          │
                          ▼
 ┌─────────────────────────────────────────────────────────────┐
 │         vangard/scripts/ (DAZ Studio Script Files)           │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ LoadMergeSU.dsa                                     │   │
-│  │ BatchRenderSU.dsa                                   │   │
-│  │ CreateGroupNodeSU.dsa                               │   │
-│  │ ... (corresponds to Python command classes)         │   │
-│  └─────────────────────────────────────────────────────┘   │
+│  LoadMergeSU.dsa, BatchRenderSU.dsa, ... (one per command)  │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ### Core Components
 
 1. **config.yaml**: Central configuration defining all commands, arguments, and class mappings
-2. **core/framework.py**: Core engine that loads config, builds parsers, and executes commands
+2. **core/framework.py**: Core engine that loads config, builds parsers, applies startup flags, and executes commands
 3. **vangard/commands/**: Python command classes that process arguments and launch DAZ scripts
 4. **vangard/scripts/**: DAZ Studio script files (.dsa) that perform actual operations in DAZ
-5. **Interface Layers**: CLI, Interactive Shell, FastAPI Server, GUI, and Pro web interface
+5. **vangard/scene_cache.py**: Polls DAZ Studio via the Script Server for scene node data, used for smart autocomplete
+6. **Interface Layers**: CLI, Interactive Shell, FastAPI Server, GUI, and Pro web interface
 
 ### Command Execution Flow
 
@@ -108,7 +110,7 @@ A powerful, configuration-driven command-line utility system that provides stand
 3. Framework loads corresponding command class from config.yaml
 4. Command class processes arguments and converts to JSON
 5. Command executes via DAZ Studio subprocess (default) or sends REST request to Script Server plugin
-6. DAZ Studio script executes operation and returns results (standard output or JSON response)
+6. DAZ Studio script executes operation and returns results
 
 ## Prerequisites
 
@@ -158,26 +160,12 @@ A powerful, configuration-driven command-line utility system that provides stand
      - macOS: `/Applications/DAZ 3D/DAZStudio4 64-bit/DAZStudio.app/Contents/MacOS/DAZStudio`
    - `DAZ_ARGS`: Optional additional arguments to pass to DAZ Studio
 
-   **DAZ Script Server mode** (optional integration):
-   Available from a separate repository: [vangard-daz-script-server](https://github.com/bluemoonfoundry/vangard-daz-script-server).
-   The Script Server is compiled as a DAZ Studio plugin and must be started within DAZ Studio in order for the scripts to connect to it. This mode provides a high-performance REST API interface.
-
-   - `DAZ_SCRIPT_SERVER_ENABLED`: Set to `true` in your `.env` file to enable the Script Server interface instead of spawning subprocesses. Default: `false`
+   **DAZ Script Server mode** (optional — see [DAZ Script Server](#daz-script-server)):
+   - `DAZ_SCRIPT_SERVER_ENABLED`: Set to `true` to enable server mode instead of subprocess. Default: `false`
    - `DAZ_SCRIPT_SERVER_HOST`: Hostname or IP of the DAZ Script Server. Default: `127.0.0.1`
    - `DAZ_SCRIPT_SERVER_PORT`: Port of the DAZ Script Server. Default: `18811`
 
-   When server mode is enabled, commands are sent as a `POST` request to `http://<host>:<port>/execute` with the body:
-   ```json
-   {
-     "scriptFile": "/absolute/path/to/Script.dsa",
-     "args": { "arg_name": "value" }
-   }
-   ```
-   `args` is passed as a JSON object (not a string). If no arguments are provided, `args` is an empty object `{}`.
-
 ### Alternative: Manual Installation
-
-If you prefer not to install the package:
 
 ```bash
 pip install -r requirements.txt
@@ -212,13 +200,82 @@ commands:
         help: "Description of optional argument"
 ```
 
+### Argument Types
+
+| `type` value | Python type |
+|---|---|
+| `str` | `str` |
+| `int` | `int` |
+| `float` | `float` |
+| *(omit type, use `action: "store_true"`)* | `bool` flag |
+
+For list arguments, add `nargs: "*"` or `nargs: "+"`.
+
+### UI Metadata (`ui` field)
+
+Each argument can include a `ui` block that controls how it is rendered in Pro mode and the GUI. This is ignored by the CLI.
+
+```yaml
+arguments:
+  - names: ["scene_file"]
+    dest: "scene_file"
+    type: "str"
+    ui:
+      widget: "file-picker"
+      file_type: "file"
+      extensions: [".duf", ".dsf"]
+      mode: "save"         # "save" or "open" (for file-picker)
+```
+
+**Available widgets**:
+
+| `widget` | Description | Extra keys |
+|---|---|---|
+| `text` | Plain text input | `placeholder` |
+| `number` | Numeric input | `min`, `max`, `step` |
+| `spinner` | Integer stepper | `min`, `max`, `step` |
+| `slider` | Range slider | `min`, `max`, `step`, `show_value` |
+| `checkbox` | Boolean toggle | — |
+| `radio` | Radio button group | `choices` |
+| `select` | Dropdown list | `choices` |
+| `textarea` | Multi-line text | `rows`, `placeholder` |
+| `file-picker` | File path input with browse button | `file_type`, `extensions`, `mode` |
+| `folder-picker` | Folder path input with browse button | — |
+
+**`choices` format** (for `select` and `radio`):
+```yaml
+choices:
+  - value: "direct-file"
+    label: "Direct to File (Local)"
+  - value: "local-to-window"
+    label: "Local to Window"
+# or simple string list:
+choices: ["png", "jpg", "tif"]
+```
+
+### Autocomplete (`autocomplete` field)
+
+Arguments that accept scene node names can be configured for smart autocomplete. This requires the DAZ Script Server to be active (see [DAZ Script Server](#daz-script-server)).
+
+```yaml
+arguments:
+  - names: ["target_node"]
+    dest: "target_node"
+    type: "str"
+    autocomplete:
+      source: "scene-nodes"
+      types: ["figure", "prop", "camera"]  # optional — omit to include all types
+```
+
+**Node types available for filtering**: `camera`, `light`, `figure`, `prop`, `group`, `conformer`
+
+When `types` is omitted, all non-bone scene nodes are offered as suggestions.
+
 ## Usage
 
 After installation, you can use the package in two ways:
 
 ### Option 1: Console Scripts (Recommended)
-
-Use the installed console scripts directly:
 
 ```bash
 vangard-cli [command] [arguments]
@@ -228,8 +285,6 @@ vangard cli [command] [arguments]
 
 ### Option 2: Python Module
 
-Run as a Python module:
-
 ```bash
 python -m vangard.cli [command] [arguments]
 # or
@@ -238,9 +293,31 @@ python -m vangard.main cli [command] [arguments]
 
 ---
 
+### Startup Flags
+
+All modes support the following flag:
+
+| Flag | Description |
+|---|---|
+| `--enable-script-server` | Enable DAZ Script Server mode for this session, overriding the `DAZ_SCRIPT_SERVER_ENABLED` environment variable. Requires DAZ Studio to be running with the Script Server plugin active — the tool will exit with a diagnostic message if the server cannot be reached. |
+
+Examples:
+```bash
+vangard-interactive --enable-script-server
+vangard-pro --enable-script-server
+vangard-server --enable-script-server
+vangard interactive --enable-script-server
+```
+
+---
+
 ### CLI Mode
 
 Execute single commands from the command line:
+
+```bash
+vangard-cli [command] [arguments]
+```
 
 **Examples**:
 
@@ -268,9 +345,6 @@ vangard-cli save-viewport -f C:/output/frame
 
 # Get help for a specific command
 vangard-cli help batch-render
-
-# Or using the multi-mode launcher
-vangard cli load-scene /path/to/scene.duf
 ```
 
 ### Interactive Mode
@@ -279,10 +353,7 @@ Launch an interactive shell with command history and auto-completion:
 
 ```bash
 vangard-interactive
-# or
-vangard interactive
-# or
-python -m vangard.interactive
+vangard-interactive --enable-script-server
 ```
 
 Once in the shell:
@@ -298,7 +369,15 @@ vangard-cli> exit
 - Command auto-completion (press Tab)
 - Command history (use Up/Down arrows)
 - Persistent history across sessions (stored in `.cli_history`)
-- Help available for all commands
+- **Scene-aware autocomplete**: When started with `--enable-script-server`, argument fields marked with `autocomplete: scene-nodes` in `config.yaml` suggest live node names from the current DAZ Studio scene
+
+**Special Commands** (available when Script Server is enabled):
+
+| Command | Shortcut | Description |
+|---|---|---|
+| `.refresh` | `.r` | Immediately refresh the scene node cache |
+| `.stats` | `.s` | Show scene cache statistics (node counts, staleness, polling status) |
+| `.help` | `.h`, `.?` | Show available special commands |
 
 ### Server Mode
 
@@ -306,10 +385,7 @@ Run as a FastAPI REST API server:
 
 ```bash
 vangard-server
-# or
-vangard server
-# or
-python -m vangard.server
+vangard-server --enable-script-server
 ```
 
 The server starts at `http://127.0.0.1:8000` with:
@@ -318,20 +394,15 @@ The server starts at `http://127.0.0.1:8000` with:
 
 **API Endpoints**:
 - `GET /`: Health check
-- `POST /api/{command-name}`: Execute command (one endpoint per command)
+- `POST /api/{command-name}`: Execute command (one endpoint per command in config.yaml)
 
 **Example API Request**:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/api/load-scene" \
   -H "Content-Type: application/json" \
-  -d '{
-    "scene_file": "/path/to/scene.duf",
-    "merge": false
-  }'
+  -d '{"scene_file": "/path/to/scene.duf", "merge": false}'
 ```
-
-All commands are automatically exposed as REST endpoints based on `config.yaml`.
 
 ### GUI Mode
 
@@ -339,13 +410,8 @@ Launch a simple graphical interface:
 
 ```bash
 vangard-gui
-# or
-vangard gui
-# or
-python -m vangard.gui
+vangard-gui --enable-script-server
 ```
-
-The GUI provides a user-friendly interface for executing commands without using the command line.
 
 ### Pro Mode
 
@@ -353,23 +419,29 @@ Launch the professional web interface — a modern, dark-themed browser UI with 
 
 ```bash
 vangard-pro
-# or
-vangard pro
-# or
-python -m vangard.pro
+vangard-pro --enable-script-server
 ```
 
-The server starts at **http://127.0.0.1:8000**. Open that URL in any modern browser to access the Pro interface.
+The server starts at **http://127.0.0.1:8000/ui**.
 
 **Pro Mode Features**:
 - **Visual Command Browser**: Searchable sidebar listing all available commands with icons and descriptions
-- **Dynamic Forms**: Forms are auto-generated from `config.yaml` — required fields, type-aware inputs, and help tooltips
+- **Dynamic Forms**: Forms are auto-generated from `config.yaml` — respecting widget types, choices, file pickers, sliders, etc.
+- **Scene Autocomplete**: When started with `--enable-script-server`, text fields with `autocomplete: scene-nodes` are populated with live node names from the current DAZ Studio scene
 - **Real-time Output**: Color-coded results (green = success, red = error) with timestamps
-- **Dark Theme**: Professional dark UI with glassmorphism effects, optimized for 3D work environments
-- **Theme Toggle**: Switch between dark and light themes
+- **Dark/Light Theme**: Toggle via the toolbar
 - **API Access**: Swagger UI still available at `/docs`
 
-See [PRO_MODE.md](PRO_MODE.md) for full documentation on Pro mode customization and usage.
+**Pro Mode Scene API** (additional endpoints available when running Pro mode):
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/api/scene/nodes` | GET | Get cached scene nodes, optionally filtered by `node_type` and `name_filter` |
+| `/api/scene/labels` | GET | Get node label strings for autocomplete, optionally filtered by `node_type` |
+| `/api/scene/refresh` | POST | Force an immediate scene cache refresh |
+| `/api/scene/stats` | GET | Get cache statistics (node counts, last update time, polling status) |
+
+See [PRO_MODE.md](PRO_MODE.md) for full documentation on Pro mode customization.
 
 **Mode Comparison**:
 
@@ -380,9 +452,72 @@ See [PRO_MODE.md](PRO_MODE.md) for full documentation on Pro mode customization 
 | Form-based Input | ❌ | ❌ | ✅ | ✅ | ✅ |
 | Modern Design | ❌ | ❌ | ❌ | N/A | ✅ |
 | Real-time Feedback | ✅ | ✅ | ✅ | ✅ | ✅ |
-| Command Discovery | ❌ | ⚠️ | ⚠️ | ✅ | ✅ |
+| Scene Autocomplete | ❌ | ✅* | ❌ | ❌ | ✅* |
 | API Access | ❌ | ❌ | ❌ | ✅ | ✅ |
 | Web-based | ❌ | ❌ | ❌ | ✅ | ✅ |
+
+*Requires `--enable-script-server` or `DAZ_SCRIPT_SERVER_ENABLED=true`
+
+## DAZ Script Server
+
+The DAZ Script Server is an optional DAZ Studio plugin that enables a high-performance REST API interface for script execution. It is available as a separate repository: [vangard-daz-script-server](https://github.com/bluemoonfoundry/vangard-daz-script-server).
+
+### Why Use the Script Server?
+
+- **No subprocess launch overhead**: Scripts execute inside an already-running DAZ Studio instance
+- **Scene awareness**: The script server enables the scene cache, which powers smart autocomplete in Interactive and Pro modes
+- **Faster iteration**: Commands return results immediately rather than waiting for DAZ Studio to start
+
+### Enabling the Script Server
+
+**Option 1 — Startup flag** (per session, no `.env` change needed):
+```bash
+vangard-pro --enable-script-server
+```
+If the server cannot be reached, the tool exits immediately with a diagnostic message listing what to check.
+
+**Option 2 — Environment variable** (persistent via `.env`):
+```env
+DAZ_SCRIPT_SERVER_ENABLED=true
+DAZ_SCRIPT_SERVER_HOST=127.0.0.1
+DAZ_SCRIPT_SERVER_PORT=18811
+```
+
+### Requirements
+
+1. DAZ Studio must be running
+2. The Script Server plugin must be installed and started inside DAZ Studio
+3. The server must be listening on the configured host and port
+
+### How Commands Are Sent
+
+When server mode is active, commands are sent as a `POST` request to `http://<host>:<port>/execute`:
+
+```json
+{
+  "scriptFile": "/absolute/path/to/Script.dsa",
+  "args": { "arg_name": "value" }
+}
+```
+
+The server responds with:
+```json
+{
+  "success": true,
+  "result": "<last evaluated expression>",
+  "output": ["lines printed by the script"],
+  "error": null
+}
+```
+
+### Scene Cache
+
+When the Script Server is enabled, the scene cache (`vangard/scene_cache.py`) polls DAZ Studio every 30 seconds to retrieve the current scene node hierarchy. This data powers:
+
+- Tab-completion of node names in Interactive mode
+- Autocomplete datalists in Pro mode form fields
+
+Nodes returned by the cache are classified into: `camera`, `light`, `figure` (root characters only), `prop`, `group`, and `conformer` (clothing/hair attached to a figure). Bones are excluded from the cache as they add noise without being useful for autocomplete.
 
 ## Available Commands
 
@@ -407,11 +542,7 @@ For a complete reference of all commands and their arguments, see [config_refere
 
 ## Adding New Commands
 
-Follow these steps to add a new command to the toolkit:
-
 ### 1. Define Command in config.yaml
-
-Add your command definition to `config.yaml`:
 
 ```yaml
 commands:
@@ -424,18 +555,20 @@ commands:
         type: "str"
         required: true
         help: "Description of required argument"
+        ui:
+          widget: "text"
+          placeholder: "Enter value"
       - names: ["-o", "--optional-arg"]
         dest: "optional_arg"
         type: "int"
         default: 0
         help: "Description of optional argument"
+        ui:
+          widget: "spinner"
+          min: 0
+          max: 100
+          step: 1
 ```
-
-**Argument Types**:
-- `str`: String values
-- `int`: Integer values
-- `float`: Float values
-- `action: "store_true"`: Boolean flags
 
 ### 2. Create Python Command Class
 
@@ -455,24 +588,16 @@ class MyNewCommandSU(BaseCommand):
 Create `vangard/scripts/MyNewCommandSU.dsa`:
 
 ```javascript
-/*
- * Copyright (C) 2025 Blue Moon Foundry Software
- * Licensed under GNU Affero General Public License v3
- */
-
-includeDir_oFILE = DzFile( getScriptFileName());
+includeDir_oFILE = DzFile( getScriptFileName() );
 util_path = includeDir_oFILE.path() + "/DazCopilotUtils.dsa";
-include (util_path);
+include(util_path);
 
 function MyNewCommandSU() {
     sFunctionName = 'MyNewCommandSU';
-
-    // Initialize and parse incoming JSON arguments
     oScriptVars = init_script_utils(sFunctionName);
 
-    // Access arguments by name
-    var sRequiredArg = getScriptArgValue('required_arg', null);
-    var nOptionalArg = getScriptArgValue('optional_arg', 0);
+    var sRequiredArg = oScriptVars['required_arg'];
+    var nOptionalArg = oScriptVars['optional_arg'] || 0;
 
     // Implement your DAZ Studio logic here
 
@@ -483,9 +608,11 @@ function MyNewCommandSU() {
 MyNewCommandSU();
 ```
 
-### 4. Update Documentation
+Available utility libraries to include alongside `DazCopilotUtils.dsa`:
+`DazCameraUtils.dsa`, `DazCoreUtils.dsa`, `DazFileUtils.dsa`, `DazLoggingUtils.dsa`,
+`DazNodeUtils.dsa`, `DazRenderUtils.dsa`, `DazStringUtils.dsa`, `DazTransformUtils.dsa`
 
-Regenerate the command reference:
+### 4. Update Documentation
 
 ```bash
 python generate_docs.py
@@ -493,7 +620,7 @@ python generate_docs.py
 
 ### 5. Add Tests
 
-Create `tests/commands/test_my_new_command_su.py` following the pattern of existing test files. Then run:
+Create `tests/commands/test_my_new_command_su.py` following the pattern of existing test files:
 
 ```bash
 pytest tests/commands/test_my_new_command_su.py -v
@@ -506,51 +633,46 @@ pytest tests/integration/  # Verify config consistency
 
 ```
 vangard-script-utils/
-├── setup.py                # Package setup configuration
-├── pyproject.toml          # Modern packaging configuration
-├── MANIFEST.in             # Distribution manifest
-├── config.yaml             # Command definitions
+├── config.yaml             # Command definitions (central registry)
 ├── config_reference.md     # Auto-generated command reference
-├── requirements.txt        # Python dependencies
-├── pytest.ini              # Test configuration
 ├── generate_docs.py        # Regenerates config_reference.md
+├── pyproject.toml          # Package configuration
+├── requirements.txt        # Python dependencies
 ├── core/
-│   ├── __init__.py
-│   └── framework.py        # Core framework engine
-├── vangard/                # Main package
-│   ├── __init__.py         # Package version and exports
+│   └── framework.py        # Core engine (config loading, arg parsing, startup flags)
+├── vangard/
 │   ├── main.py             # Multi-mode entry point
 │   ├── cli.py              # CLI interface
 │   ├── interactive.py      # Interactive shell
 │   ├── server.py           # FastAPI server
 │   ├── gui.py              # GUI interface
-│   ├── pro.py              # Pro web interface (FastAPI + static files)
+│   ├── pro.py              # Pro web interface
+│   ├── scene_cache.py      # Scene node cache for autocomplete
+│   ├── interactive_completer.py  # Smart tab-completion for interactive mode
 │   ├── static/             # Pro mode frontend assets
 │   │   ├── index.html
 │   │   ├── css/styles.css
 │   │   └── js/app.js
 │   ├── commands/           # Python command classes
 │   │   ├── BaseCommand.py  # Abstract base class
-│   │   ├── LoadMergeSU.py
-│   │   ├── BatchRenderSU.py
-│   │   ├── SaveViewportSU.py
-│   │   ├── FaceRenderLoraSU.py
 │   │   └── ...
 │   └── scripts/            # DAZ Studio scripts
-│       ├── DazCopilotUtils.dsa  # Utility functions
-│       ├── LoadMergeSU.dsa
-│       ├── BatchRenderSU.dsa
-│       ├── SaveViewportSU.dsa
-│       ├── FaceRenderLoraSU.dsa
-│       └── ...
-├── tests/                  # Test suite (179 tests)
-│   ├── conftest.py         # Test fixtures
-│   ├── commands/           # Command tests (137 tests)
-│   ├── unit/               # Unit tests (39 tests)
-│   └── integration/        # Integration tests (8 tests)
-└── .github/
-    └── workflows/
-        └── tests.yml       # CI/CD workflow
+│       ├── DazCopilotUtils.dsa      # Utility facade (includes all below)
+│       ├── DazCoreUtils.dsa
+│       ├── DazLoggingUtils.dsa
+│       ├── DazFileUtils.dsa
+│       ├── DazStringUtils.dsa
+│       ├── DazNodeUtils.dsa
+│       ├── DazTransformUtils.dsa
+│       ├── DazCameraUtils.dsa
+│       ├── DazRenderUtils.dsa
+│       ├── GetSceneHierarchySU.dsa  # Scene cache query script
+│       └── ...                      # One .dsa per command
+└── tests/
+    ├── conftest.py         # Shared fixtures
+    ├── commands/           # Command tests
+    ├── unit/               # Unit tests
+    └── integration/        # Integration tests
 ```
 
 ### Dependencies
@@ -563,14 +685,9 @@ vangard-script-utils/
 
 ### Running Tests
 
-The project includes a comprehensive test suite with 179 tests:
-
 ```bash
 # Run all tests
 pytest tests/
-
-# Run with verbose output
-pytest tests/ -v
 
 # Run specific test categories
 pytest tests/commands/      # Command tests
@@ -579,14 +696,17 @@ pytest tests/integration/   # Integration tests
 
 # Run with coverage
 pytest tests/ --cov=vangard --cov=core --cov-report=html
+
+# Run a single test
+pytest tests/unit/test_framework.py::test_load_config -v
 ```
 
 **Test Markers**:
-- `unit` - Fast tests with no external dependencies
-- `integration` - Integration tests (no DAZ Studio required)
-- `command` - Individual command tests
-- `e2e` - End-to-end tests (require DAZ Studio, excluded by default)
-- `manual` - Manual tests (excluded by default)
+- `unit` — Fast tests with no external dependencies
+- `integration` — Integration tests (no DAZ Studio required)
+- `command` — Individual command tests
+- `e2e` — End-to-end tests (require DAZ Studio, excluded by default)
+- `manual` — Manual tests (excluded by default)
 
 ### Code Conventions
 
