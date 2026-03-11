@@ -3,13 +3,15 @@ Vangard Pro Mode - Professional Web Interface
 A modern, visual web interface for DAZ Studio automation.
 """
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 import os
 from pathlib import Path
+from typing import Optional, Dict, Any, List
 
 from vangard.server import create_fastapi_app
+from vangard.scene_cache import get_scene_cache_manager
 
 def create_pro_app():
     """
@@ -55,6 +57,67 @@ def create_pro_app():
     async def redirect_to_ui():
         """Redirect /pro to /ui for convenience."""
         return RedirectResponse(url="/ui")
+
+    # Scene Cache Endpoints
+    scene_cache = get_scene_cache_manager()
+
+    @app.get("/api/scene/nodes", summary="Get Scene Nodes", tags=["Scene"])
+    async def get_scene_nodes(
+        node_type: Optional[str] = Query(None, description="Filter by node type: camera, light, figure, prop, group"),
+        name_filter: Optional[str] = Query(None, description="Filter nodes by name (case-insensitive)")
+    ) -> Dict[str, Any]:
+        """
+        Get cached scene nodes from DAZ Studio.
+        Returns list of nodes with their labels, types, and metadata.
+        """
+        nodes = scene_cache.get_nodes(node_type=node_type, name_filter=name_filter)
+        return {
+            "nodes": nodes,
+            "count": len(nodes),
+            "cache_stats": scene_cache.get_cache_stats()
+        }
+
+    @app.get("/api/scene/labels", summary="Get Node Labels", tags=["Scene"])
+    async def get_node_labels(
+        node_type: Optional[str] = Query(None, description="Filter by node type: camera, light, figure, prop, group")
+    ) -> Dict[str, List[str]]:
+        """
+        Get list of node labels for autocomplete/typeahead.
+        Returns simple list of label strings.
+        """
+        labels = scene_cache.get_node_labels(node_type=node_type)
+        return {
+            "labels": labels,
+            "count": len(labels)
+        }
+
+    @app.post("/api/scene/refresh", summary="Refresh Scene Cache", tags=["Scene"])
+    async def refresh_scene_cache() -> Dict[str, Any]:
+        """
+        Force refresh of the scene cache.
+        Queries DAZ Studio immediately for current scene state.
+        """
+        success = scene_cache.refresh_cache(force=True)
+        return {
+            "success": success,
+            "cache_stats": scene_cache.get_cache_stats()
+        }
+
+    @app.get("/api/scene/stats", summary="Get Cache Statistics", tags=["Scene"])
+    async def get_cache_stats() -> Dict[str, Any]:
+        """Get statistics about the scene cache."""
+        return scene_cache.get_cache_stats()
+
+    # Startup and shutdown events
+    @app.on_event("startup")
+    async def startup_event():
+        """Start scene cache polling on server startup."""
+        scene_cache.start_polling()
+
+    @app.on_event("shutdown")
+    async def shutdown_event():
+        """Stop scene cache polling on server shutdown."""
+        scene_cache.stop_polling()
 
     return app
 

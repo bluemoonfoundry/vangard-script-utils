@@ -140,8 +140,16 @@ function extractParameters(operation, fullSchema) {
             const nonNullType = prop.anyOf.find(t => t.type && t.type !== 'null');
             if (nonNullType) {
                 actualType = nonNullType.type;
+                // Also check for default in anyOf items
+                if (actualDefault === undefined && nonNullType.default !== undefined) {
+                    actualDefault = nonNullType.default;
+                }
             }
         }
+
+        // Extract UI metadata from json_schema_extra
+        const uiMetadata = prop.ui || prop['x-ui'] || {};
+        const autocompleteMetadata = prop.autocomplete || {};
 
         return {
             name,
@@ -150,7 +158,8 @@ function extractParameters(operation, fullSchema) {
             description: prop.description || prop.title || '',
             default: actualDefault !== undefined ? actualDefault : prop.default,
             items: prop.items, // For array types
-            uiclass: prop['x-uiclass'] || null // Custom UI widget hint
+            ui: uiMetadata, // UI widget metadata from config.yaml
+            autocomplete: autocompleteMetadata // Autocomplete configuration
         };
     });
 }
@@ -266,6 +275,9 @@ function renderCommandForm(command) {
         ).join('');
     }
 
+    // Populate autocomplete for fields that need it
+    populateAutocomplete(command.parameters);
+
     // Hide output panel initially
     document.getElementById('outputPanel').style.display = 'none';
 }
@@ -273,88 +285,42 @@ function renderCommandForm(command) {
 function generateFormField(param) {
     const isRequired = param.required;
     const fieldId = `field_${param.name}`;
+    const ui = param.ui || {};
+    const widget = ui.widget || inferWidget(param);
 
     let inputHtml = '';
 
-    // Check for special UI classes first
-    if (param.uiclass === 'pick-folder' || param.uiclass === 'pick-file') {
-        const buttonText = param.uiclass === 'pick-folder' ? '📁 Browse Folder' : '📄 Browse File';
-        inputHtml = `
-            <div class="file-picker-wrapper">
-                <input
-                    type="text"
-                    id="${fieldId}"
-                    name="${param.name}"
-                    class="form-input file-picker-input"
-                    ${isRequired ? 'required' : ''}
-                    ${param.default !== undefined ? `value="${param.default}"` : ''}
-                    placeholder="${param.description || 'Enter or browse for path'}"
-                >
-                <button
-                    type="button"
-                    class="btn btn-secondary file-picker-button"
-                    onclick="alert('File picker coming soon! For now, please type the path manually.')"
-                    title="Browse for ${param.uiclass === 'pick-folder' ? 'folder' : 'file'}"
-                >
-                    ${buttonText}
-                </button>
-            </div>
-            <small style="color: var(--color-text-muted); font-size: 0.75rem;">
-                Tip: You can type the path directly or use the browse button
-            </small>
-        `;
-    } else if (param.type === 'boolean') {
-        inputHtml = `
-            <div class="form-checkbox-wrapper">
-                <input
-                    type="checkbox"
-                    id="${fieldId}"
-                    name="${param.name}"
-                    class="form-checkbox"
-                    ${param.default === true ? 'checked' : ''}
-                >
-                <label for="${fieldId}">${param.description || param.name}</label>
-            </div>
-        `;
-    } else if (param.type === 'integer' || param.type === 'number') {
-        inputHtml = `
-            <input
-                type="number"
-                id="${fieldId}"
-                name="${param.name}"
-                class="form-input"
-                ${isRequired ? 'required' : ''}
-                ${param.default !== undefined ? `value="${param.default}"` : ''}
-                ${param.type === 'integer' ? 'step="1"' : 'step="any"'}
-            >
-        `;
-    } else if (param.type === 'array') {
-        inputHtml = `
-            <input
-                type="text"
-                id="${fieldId}"
-                name="${param.name}"
-                class="form-input"
-                placeholder="Comma-separated values"
-                ${isRequired ? 'required' : ''}
-            >
-            <small style="color: var(--color-text-muted); font-size: 0.75rem;">
-                Enter multiple values separated by commas
-            </small>
-        `;
-    } else {
-        // Default to text input
-        inputHtml = `
-            <input
-                type="text"
-                id="${fieldId}"
-                name="${param.name}"
-                class="form-input"
-                ${isRequired ? 'required' : ''}
-                ${param.default !== undefined ? `value="${param.default}"` : ''}
-                placeholder="${param.description || param.name}"
-            >
-        `;
+    // Generate input based on widget type
+    switch (widget) {
+        case 'file-picker':
+        case 'folder-picker':
+            inputHtml = generateFilePickerInput(fieldId, param, ui);
+            break;
+        case 'slider':
+            inputHtml = generateSliderInput(fieldId, param, ui);
+            break;
+        case 'spinner':
+            inputHtml = generateSpinnerInput(fieldId, param, ui);
+            break;
+        case 'select':
+            inputHtml = generateSelectInput(fieldId, param, ui);
+            break;
+        case 'checkbox':
+            inputHtml = generateCheckboxInput(fieldId, param, ui);
+            break;
+        case 'radio':
+            inputHtml = generateRadioInput(fieldId, param, ui);
+            break;
+        case 'textarea':
+            inputHtml = generateTextareaInput(fieldId, param, ui);
+            break;
+        case 'number':
+            inputHtml = generateNumberInput(fieldId, param, ui);
+            break;
+        case 'text':
+        default:
+            inputHtml = generateTextInput(fieldId, param, ui);
+            break;
     }
 
     return `
@@ -367,6 +333,366 @@ function generateFormField(param) {
             ${inputHtml}
         </div>
     `;
+}
+
+// Infer widget type from parameter properties if not explicitly specified
+function inferWidget(param) {
+    if (param.type === 'boolean') return 'checkbox';
+    if (param.type === 'integer' || param.type === 'number') return 'number';
+    if (param.type === 'array') return 'text';
+    return 'text';
+}
+
+// Widget generation functions
+function generateTextInput(fieldId, param, ui) {
+    const placeholder = ui.placeholder || param.description || '';
+    const autocomplete = param.autocomplete || {};
+    const hasAutocomplete = autocomplete.source === 'scene-nodes';
+    const datalistId = hasAutocomplete ? `${fieldId}_datalist` : '';
+
+    let html = `
+        <input
+            type="text"
+            id="${fieldId}"
+            name="${param.name}"
+            class="form-input ${hasAutocomplete ? 'has-autocomplete' : ''}"
+            ${param.required ? 'required' : ''}
+            ${param.default !== undefined && param.default !== null ? `value="${param.default}"` : ''}
+            ${placeholder ? `placeholder="${placeholder}"` : ''}
+            ${hasAutocomplete ? `list="${datalistId}"` : ''}
+            ${hasAutocomplete ? `data-autocomplete-types="${(autocomplete.types || []).join(',')}"` : ''}
+        >
+    `;
+
+    if (hasAutocomplete) {
+        html += `<datalist id="${datalistId}"></datalist>`;
+        // Add small helper text
+        html += `<small style="color: var(--color-text-muted); font-size: 0.75rem;">
+            💡 Type to see scene nodes
+        </small>`;
+    }
+
+    return html;
+}
+
+function generateNumberInput(fieldId, param, ui) {
+    const min = ui.min !== undefined ? `min="${ui.min}"` : '';
+    const max = ui.max !== undefined ? `max="${ui.max}"` : '';
+    const step = ui.step !== undefined ? `step="${ui.step}"` : (param.type === 'integer' ? 'step="1"' : 'step="any"');
+
+    return `
+        <input
+            type="number"
+            id="${fieldId}"
+            name="${param.name}"
+            class="form-input"
+            ${param.required ? 'required' : ''}
+            ${param.default !== undefined && param.default !== null ? `value="${param.default}"` : ''}
+            ${min}
+            ${max}
+            ${step}
+        >
+    `;
+}
+
+function generateSpinnerInput(fieldId, param, ui) {
+    const min = ui.min !== undefined ? `min="${ui.min}"` : '';
+    const max = ui.max !== undefined ? `max="${ui.max}"` : '';
+    const step = ui.step || 1;
+
+    return `
+        <input
+            type="number"
+            id="${fieldId}"
+            name="${param.name}"
+            class="form-input"
+            ${param.required ? 'required' : ''}
+            ${param.default !== undefined && param.default !== null ? `value="${param.default}"` : ''}
+            ${min}
+            ${max}
+            step="${step}"
+        >
+    `;
+}
+
+function generateSliderInput(fieldId, param, ui) {
+    const min = ui.min || 0;
+    const max = ui.max || 100;
+    const step = ui.step || 1;
+    const defaultVal = param.default !== undefined ? param.default : min;
+    const showValue = ui.show_value !== false;
+
+    return `
+        <div class="slider-container">
+            <input
+                type="range"
+                id="${fieldId}"
+                name="${param.name}"
+                class="form-slider"
+                min="${min}"
+                max="${max}"
+                step="${step}"
+                value="${defaultVal}"
+                oninput="updateSliderValue('${fieldId}')"
+            >
+            ${showValue ? `<span class="slider-value" id="${fieldId}_value">${defaultVal}</span>` : ''}
+        </div>
+    `;
+}
+
+function generateSelectInput(fieldId, param, ui) {
+    const choices = ui.choices || [];
+    let optionsHtml = '';
+
+    // Handle both simple array and object array formats
+    choices.forEach(choice => {
+        if (typeof choice === 'string') {
+            const selected = param.default === choice ? 'selected' : '';
+            optionsHtml += `<option value="${choice}" ${selected}>${choice}</option>`;
+        } else if (typeof choice === 'object') {
+            const value = choice.value;
+            const label = choice.label || value;
+            const selected = param.default === value ? 'selected' : '';
+            optionsHtml += `<option value="${value}" ${selected}>${label}</option>`;
+        }
+    });
+
+    return `
+        <select
+            id="${fieldId}"
+            name="${param.name}"
+            class="form-input"
+            ${param.required ? 'required' : ''}
+        >
+            ${!param.required ? '<option value="">-- Select --</option>' : ''}
+            ${optionsHtml}
+        </select>
+    `;
+}
+
+function generateCheckboxInput(fieldId, param, ui) {
+    const checked = param.default === true ? 'checked' : '';
+    return `
+        <div class="form-checkbox-wrapper">
+            <input
+                type="checkbox"
+                id="${fieldId}"
+                name="${param.name}"
+                class="form-checkbox"
+                ${checked}
+            >
+            <label for="${fieldId}">${param.description || param.name}</label>
+        </div>
+    `;
+}
+
+function generateRadioInput(fieldId, param, ui) {
+    const choices = ui.choices || [];
+    let radioHtml = '<div class="radio-group">';
+
+    choices.forEach((choice, index) => {
+        const value = typeof choice === 'string' ? choice : choice.value;
+        const label = typeof choice === 'string' ? choice : (choice.label || value);
+        const radioId = `${fieldId}_${index}`;
+        const checked = param.default === value ? 'checked' : '';
+
+        radioHtml += `
+            <div class="form-radio-wrapper">
+                <input
+                    type="radio"
+                    id="${radioId}"
+                    name="${param.name}"
+                    value="${value}"
+                    class="form-radio"
+                    ${checked}
+                    ${param.required ? 'required' : ''}
+                >
+                <label for="${radioId}">${label}</label>
+            </div>
+        `;
+    });
+
+    radioHtml += '</div>';
+    return radioHtml;
+}
+
+function generateFilePickerInput(fieldId, param, ui) {
+    const isFolder = ui.widget === 'folder-picker' || ui.file_type === 'folder';
+    const buttonText = isFolder ? '📁 Browse Folder' : '📄 Browse File';
+    const extensions = ui.extensions ? ui.extensions.join(', ') : '';
+    const placeholder = ui.placeholder || (isFolder ? 'Enter folder path' : 'Enter file path');
+
+    return `
+        <div class="file-picker-wrapper">
+            <input
+                type="text"
+                id="${fieldId}"
+                name="${param.name}"
+                class="form-input file-picker-input"
+                ${param.required ? 'required' : ''}
+                ${param.default !== undefined && param.default !== null ? `value="${param.default}"` : ''}
+                placeholder="${placeholder}"
+            >
+            <button
+                type="button"
+                class="btn btn-secondary file-picker-button"
+                onclick="alert('File picker coming soon! For now, please type the path manually.')"
+                title="Browse for ${isFolder ? 'folder' : 'file'}"
+            >
+                ${buttonText}
+            </button>
+        </div>
+        ${extensions ? `<small style="color: var(--color-text-muted); font-size: 0.75rem;">Supported: ${extensions}</small>` : ''}
+    `;
+}
+
+function generateTextareaInput(fieldId, param, ui) {
+    const rows = ui.rows || 4;
+    const placeholder = ui.placeholder || param.description || '';
+
+    return `
+        <textarea
+            id="${fieldId}"
+            name="${param.name}"
+            class="form-input"
+            rows="${rows}"
+            ${param.required ? 'required' : ''}
+            ${placeholder ? `placeholder="${placeholder}"` : ''}
+        >${param.default || ''}</textarea>
+    `;
+}
+
+// Helper function to update slider value display
+function updateSliderValue(fieldId) {
+    const slider = document.getElementById(fieldId);
+    const valueDisplay = document.getElementById(`${fieldId}_value`);
+    if (slider && valueDisplay) {
+        valueDisplay.textContent = slider.value;
+    }
+}
+
+// ============================================
+// Autocomplete / Scene Cache Integration
+// ============================================
+
+async function populateAutocomplete(parameters) {
+    /**
+     * Populate autocomplete datalists for parameters that have scene-nodes autocomplete.
+     * Fetches scene data from the cache and populates HTML5 datalist elements.
+     */
+    // Find parameters that need autocomplete
+    const autocompleteParams = parameters.filter(p =>
+        p.autocomplete && p.autocomplete.source === 'scene-nodes'
+    );
+
+    if (autocompleteParams.length === 0) {
+        return; // No autocomplete needed
+    }
+
+    try {
+        // Fetch scene nodes from cache
+        const response = await fetch('/api/scene/labels');
+        const data = await response.json();
+
+        if (!response.ok || !data.labels) {
+            console.warn('Failed to fetch scene labels for autocomplete');
+            return;
+        }
+
+        const allLabels = data.labels;
+
+        // Populate each autocomplete field
+        autocompleteParams.forEach(param => {
+            const fieldId = `field_${param.name}`;
+            const datalistId = `${fieldId}_datalist`;
+            const datalist = document.getElementById(datalistId);
+
+            if (!datalist) {
+                console.warn(`Datalist not found for ${param.name}`);
+                return;
+            }
+
+            // Filter labels by type if specified
+            const types = param.autocomplete.types || [];
+            let labels = allLabels;
+
+            if (types.length > 0) {
+                // Need to fetch full node data to filter by type
+                fetchAndFilterNodesByType(datalist, types);
+            } else {
+                // Use all labels
+                populateDatalist(datalist, labels);
+            }
+        });
+
+    } catch (error) {
+        console.error('Error populating autocomplete:', error);
+    }
+}
+
+async function fetchAndFilterNodesByType(datalist, types) {
+    /**
+     * Fetch nodes with type information and filter by specified types.
+     */
+    try {
+        // Fetch nodes for each type and combine
+        const typeQueries = types.map(type =>
+            fetch(`/api/scene/nodes?node_type=${type}`)
+                .then(r => r.json())
+                .then(d => d.nodes || [])
+        );
+
+        const results = await Promise.all(typeQueries);
+        const allNodes = results.flat();
+        const labels = allNodes.map(n => n.label).filter(Boolean);
+
+        // Remove duplicates
+        const uniqueLabels = [...new Set(labels)];
+
+        populateDatalist(datalist, uniqueLabels);
+    } catch (error) {
+        console.error('Error filtering nodes by type:', error);
+    }
+}
+
+function populateDatalist(datalist, labels) {
+    /**
+     * Populate a datalist element with option elements.
+     */
+    // Clear existing options
+    datalist.innerHTML = '';
+
+    // Add new options
+    labels.forEach(label => {
+        const option = document.createElement('option');
+        option.value = label;
+        datalist.appendChild(option);
+    });
+}
+
+// Add refresh button handler if needed
+async function refreshSceneCache() {
+    /**
+     * Manually refresh the scene cache.
+     * Can be called from UI or automatically.
+     */
+    try {
+        const response = await fetch('/api/scene/refresh', { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('Scene cache refreshed', 'success');
+            // Re-populate autocomplete for current form
+            if (state.selectedCommand) {
+                populateAutocomplete(state.selectedCommand.parameters);
+            }
+        } else {
+            showToast('Failed to refresh scene cache', 'error');
+        }
+    } catch (error) {
+        console.error('Error refreshing scene cache:', error);
+        showToast('Error refreshing scene cache', 'error');
+    }
 }
 
 function displayOutput(result, type = 'info') {

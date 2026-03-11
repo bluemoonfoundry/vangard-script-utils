@@ -3,7 +3,7 @@ import argparse
 from typing import Any, Dict, List, Optional
 import uvicorn
 from fastapi import FastAPI, Body, HTTPException
-from pydantic import create_model, BaseModel
+from pydantic import create_model, BaseModel, Field
 
 from core.framework import load_config, build_parser, load_class, TYPE_MAP
 
@@ -36,20 +36,41 @@ def create_fastapi_app():
         for arg in cmd_config.get("arguments", []):
             field_name = arg["dest"]
             field_type: Any = TYPE_MAP.get(arg.get("type", "str"), str)
-            
+
             if arg.get("nargs") in ("*", "+"):
                 field_type = List[field_type]
-            
+
+            # Extract UI and autocomplete metadata if present
+            ui_metadata = arg.get("ui", {})
+            autocomplete_metadata = arg.get("autocomplete", {})
+            description = arg.get("help", "")
+
+            # Build Field kwargs with UI and autocomplete metadata
+            field_kwargs = {
+                "description": description,
+            }
+
+            # Add metadata as json_schema_extra for OpenAPI
+            json_schema_extra = {}
+            if ui_metadata:
+                json_schema_extra["ui"] = ui_metadata
+            if autocomplete_metadata:
+                json_schema_extra["autocomplete"] = autocomplete_metadata
+
+            if json_schema_extra:
+                field_kwargs["json_schema_extra"] = json_schema_extra
+
             if arg.get("action") == "store_true":
                 field_type = bool
-                pydantic_fields[field_name] = (Optional[field_type], False)
+                default_value = arg.get("default", False)
+                pydantic_fields[field_name] = (Optional[field_type], Field(default_value, **field_kwargs))
                 continue
 
             default_value = arg.get("default")
             if arg.get("required", False):
-                 pydantic_fields[field_name] = (field_type, ...)
+                 pydantic_fields[field_name] = (field_type, Field(..., **field_kwargs))
             else:
-                 pydantic_fields[field_name] = (Optional[field_type], default_value)
+                 pydantic_fields[field_name] = (Optional[field_type], Field(default_value, **field_kwargs))
 
         # Create the dynamic Pydantic model for this command's arguments
         RequestModel = create_model(
