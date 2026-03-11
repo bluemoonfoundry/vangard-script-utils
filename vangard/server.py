@@ -1,11 +1,12 @@
 # server.py
 import argparse
+import sys
 from typing import Any, Dict, List, Optional
 import uvicorn
 from fastapi import FastAPI, Body, HTTPException
 from pydantic import create_model, BaseModel, Field
 
-from core.framework import load_config, build_parser, load_class, TYPE_MAP
+from core.framework import load_config, build_parser, load_class, TYPE_MAP, apply_startup_flags
 
 def create_fastapi_app():
     """
@@ -122,6 +123,7 @@ def main():
     """
     The main entry point to run the FastAPI server using Uvicorn.
     """
+    apply_startup_flags(sys.argv[1:])
     uvicorn.run("vangard.server:app", host="127.0.0.1", port=8000, reload=True)
 
 if __name__ == "__main__":

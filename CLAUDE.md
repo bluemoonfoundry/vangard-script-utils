@@ -54,6 +54,18 @@ pytest tests/ -v --cov=vangard --cov=core --cov-report=html
 - `manual`: Manual tests (documentation only - not run by default)
 - `slow`: Time-consuming tests
 
+### Linting
+```bash
+# Check for syntax errors and undefined names (strict)
+flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+
+# Full style check (non-blocking)
+flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+# Code quality analysis
+pylint core/ vangard/ --exit-zero
+```
+
 ### Generating Documentation
 ```bash
 # Regenerate config_reference.md from config.yaml
@@ -215,6 +227,7 @@ python -m vangard.main cli [command] [args]
    - Access args via `oScriptVars['arg_name']`
    - Use `log_success_event()` and `log_failure_event()` for consistent logging
    - Call `close_script_utils()` at the end to clean up
+   - Additional shared DSA utility libraries available to include: `DazCameraUtils.dsa`, `DazCoreUtils.dsa`, `DazFileUtils.dsa`, `DazLoggingUtils.dsa`, `DazNodeUtils.dsa`, `DazRenderUtils.dsa`, `DazStringUtils.dsa`, `DazTransformUtils.dsa`
 
 4. Regenerate documentation:
    ```bash
@@ -238,6 +251,16 @@ Pro mode serves static files from `vangard/static/`:
 These files are automatically included via `package_data` in setup.py and served by `vangard/pro.py` using FastAPI's static file mounting. To customize the Pro interface appearance or add command icons, edit these files. See [PRO_MODE.md](PRO_MODE.md) for detailed customization instructions.
 
 ## Testing Notes
+
+### Shared Fixtures (`tests/conftest.py`)
+
+Prefer these fixtures over manual `@mock.patch` in command tests:
+- `mock_daz_execution` — patches `BaseCommand.exec_remote_script`, yields the mock directly
+- `sample_config` — loads actual `config.yaml`
+- `temp_env` / `clean_env` — sets/clears DAZ environment variables
+- `mock_parser` — provides a mock `ArgumentParser`
+
+### Test Assets
 
 Test assets located in `test/` directory include:
 - `CubeTestScene.duf`: Test scene file

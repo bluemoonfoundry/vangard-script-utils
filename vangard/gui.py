@@ -7,7 +7,7 @@ import sys
 import io
 from contextlib import redirect_stdout, redirect_stderr
 
-from core.framework import load_config, build_parser, run_command
+from core.framework import load_config, build_parser, run_command, apply_startup_flags
 
 class App(tk.Tk):
     """A Tkinter GUI wrapper with completion, hinting, and command history."""
@@ -181,6 +181,7 @@ class App(tk.Tk):
 
 def main():
     """The main entry point to launch the GUI application."""
+    apply_startup_flags(sys.argv[1:])
     app = App()
     app.mainloop()
 

@@ -2,6 +2,7 @@
 Vangard Pro Mode - Professional Web Interface
 A modern, visual web interface for DAZ Studio automation.
 """
+import sys
 import uvicorn
 from fastapi import FastAPI, Query
 from fastapi.staticfiles import StaticFiles
@@ -12,6 +13,7 @@ from typing import Optional, Dict, Any, List
 
 from vangard.server import create_fastapi_app
 from vangard.scene_cache import get_scene_cache_manager
+from core.framework import apply_startup_flags
 
 def create_pro_app():
     """
@@ -80,7 +82,7 @@ def create_pro_app():
     @app.get("/api/scene/labels", summary="Get Node Labels", tags=["Scene"])
     async def get_node_labels(
         node_type: Optional[str] = Query(None, description="Filter by node type: camera, light, figure, prop, group")
-    ) -> Dict[str, List[str]]:
+    ) -> Dict[str, Any]:
         """
         Get list of node labels for autocomplete/typeahead.
         Returns simple list of label strings.
@@ -121,14 +123,14 @@ def create_pro_app():
 
     return app
 
-# Create the app instance
-app = create_pro_app()
-
 def main():
     """
     Main entry point for Vangard Pro mode.
     Launches the FastAPI server with the Pro web interface.
     """
+    apply_startup_flags(sys.argv[1:])
+    app = create_pro_app()
+
     print("=" * 60)
     print("🚀 Vangard Pro - Professional Interface")
     print("=" * 60)
@@ -143,7 +145,7 @@ def main():
     print("=" * 60)
 
     uvicorn.run(
-        "vangard.pro:app",
+        app,
         host="127.0.0.1",
         port=8000,
         reload=False,

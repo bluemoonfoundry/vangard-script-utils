@@ -1,11 +1,24 @@
 # core/framework.py
 import argparse
+import os
 import yaml
 import importlib
 import sys
 from typing import Any, Dict, List
 
 TYPE_MAP = {"str": str, "int": int, "float": float}
+
+def apply_startup_flags(argv=None):
+    """
+    Parse --enable-script-server from argv and set DAZ_SCRIPT_SERVER_ENABLED if present.
+    Returns the remaining args with the flag removed.
+    """
+    p = argparse.ArgumentParser(add_help=False)
+    p.add_argument('--enable-script-server', action='store_true', default=False)
+    known, remaining = p.parse_known_args(argv)
+    if known.enable_script_server:
+        os.environ['DAZ_SCRIPT_SERVER_ENABLED'] = 'true'
+    return remaining
 
 def load_config(config_file: str = "config.yaml") -> Dict[str, Any]:
     """Loads and returns the configuration from the YAML file."""

@@ -93,7 +93,7 @@ async function loadCommands() {
 
         // Extract commands from OpenAPI schema
         state.commands = Object.entries(schema.paths)
-            .filter(([path, _]) => path.startsWith('/api/'))
+            .filter(([path, operations]) => path.startsWith('/api/') && operations.post)
             .map(([path, operations]) => {
                 const commandName = path.replace('/api/', '');
                 const postOp = operations.post;

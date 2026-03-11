@@ -36,7 +36,8 @@ class SceneCacheManager:
             "lights": [],
             "characters": [],
             "props": [],
-            "groups": []
+            "groups": [],
+            "conformers": []
         }
         self.last_update: Optional[datetime] = None
         self.polling_enabled = False
@@ -112,16 +113,17 @@ class SceneCacheManager:
             scene_data = self._query_scene_hierarchy()
 
             with self._lock:
-                # Update cache
+                # Update cache - bones and conformers are excluded from named
+                # categories but are still present in all_nodes if needed.
                 self.cache["all_nodes"] = scene_data.get("nodes", [])
                 self.cache["cameras"] = [n for n in self.cache["all_nodes"] if n.get("type") == "camera"]
                 self.cache["lights"] = [n for n in self.cache["all_nodes"] if n.get("type") == "light"]
                 self.cache["characters"] = [n for n in self.cache["all_nodes"] if n.get("type") == "figure"]
                 self.cache["props"] = [n for n in self.cache["all_nodes"] if n.get("type") == "prop"]
                 self.cache["groups"] = [n for n in self.cache["all_nodes"] if n.get("type") == "group"]
+                self.cache["conformers"] = [n for n in self.cache["all_nodes"] if n.get("type") == "conformer"]
                 self.last_update = datetime.now()
 
-            print(f"Scene cache refreshed: {len(self.cache['all_nodes'])} nodes")
             return True
 
         except Exception as e:
@@ -130,83 +132,19 @@ class SceneCacheManager:
 
     def _query_scene_hierarchy(self) -> Dict:
         """
-        Query DAZ Studio for scene hierarchy via inline script.
+        Query DAZ Studio for scene hierarchy via GetSceneHierarchySU.dsa.
 
         Returns:
             Dictionary with scene data
         """
-        # Inline DSA script to query scene hierarchy
-        dsa_script = """
-        // Query Scene Hierarchy - Inline Script
-        function querySceneHierarchy() {
-            var result = {
-                "nodes": [],
-                "timestamp": new Date().toISOString()
-            };
+        # Resolve path to the DSA script (same pattern as BaseCommand.exec_remote_script)
+        script_file = os.path.abspath(__file__).replace("\\", "/")
+        parts = script_file.split("/")[:-1]  # strip scene_cache.py → vangard/
+        parts.append("scripts")
+        script_path = "/".join(parts) + "/GetSceneHierarchySU.dsa"
 
-            var scene = Scene.getPrimarySelection();
-            if (!scene) {
-                scene = Scene.getScene();
-            }
-
-            function getNodeType(node) {
-                if (!node) return "unknown";
-
-                var className = node.className();
-                if (className.indexOf("DzCamera") >= 0) return "camera";
-                if (className.indexOf("DzLight") >= 0) return "light";
-                if (className.indexOf("DzSkeleton") >= 0 || className.indexOf("DzFigure") >= 0) return "figure";
-                if (className.indexOf("DzBone") >= 0) return "bone";
-
-                // Check if it's a group node
-                if (node.getNumNodeChildren() > 0 && !node.getObject()) {
-                    return "group";
-                }
-
-                // Default to prop if it has geometry
-                if (node.getObject()) return "prop";
-
-                return "node";
-            }
-
-            function traverseNode(node, depth) {
-                if (!node) return;
-
-                var nodeInfo = {
-                    "label": node.getLabel(),
-                    "name": node.name,
-                    "type": getNodeType(node),
-                    "path": node.getNodePath(),
-                    "visible": node.isVisible(),
-                    "selected": node.isSelected(),
-                    "depth": depth
-                };
-
-                result.nodes.push(nodeInfo);
-
-                // Recursively traverse children
-                for (var i = 0; i < node.getNumNodeChildren(); i++) {
-                    var child = node.getNodeChild(i);
-                    traverseNode(child, depth + 1);
-                }
-            }
-
-            // Traverse all root nodes in the scene
-            var rootNodes = Scene.getNodeList();
-            for (var i = 0; i < rootNodes.length; i++) {
-                traverseNode(rootNodes[i], 0);
-            }
-
-            return JSON.stringify(result);
-        }
-
-        // Execute and print result
-        print(querySceneHierarchy());
-        """
-
-        # Send inline script to DAZ Script Server
         payload = {
-            "script": dsa_script,  # Inline script (not scriptFile)
+            "scriptFile": script_path,
             "args": {}
         }
 
@@ -217,23 +155,20 @@ class SceneCacheManager:
             method="POST",
         )
 
-        timeout = 10  # 10 second timeout for scene query
+        timeout = 10
         with urllib.request.urlopen(req, timeout=timeout) as response:
             result_text = response.read().decode("utf-8")
 
-            # Parse JSON response from DAZ
-            # The print() statement in DSA will be captured in the response
-            try:
-                result_data = json.loads(result_text)
-                return result_data
-            except json.JSONDecodeError:
-                # If response is not JSON, try to extract JSON from text
-                # (DAZ might wrap it in other output)
-                import re
-                json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
-                if json_match:
-                    return json.loads(json_match.group())
-                raise ValueError(f"Could not parse JSON from response: {result_text[:200]}")
+        response_data = json.loads(result_text)
+
+        if not response_data.get("success"):
+            raise ValueError(f"Script execution failed: {response_data.get('error')}")
+
+        output = response_data.get("output", [])
+        if not output:
+            raise ValueError("Scene hierarchy script produced no output")
+
+        return json.loads(output[0])
 
     def get_nodes(self, node_type: Optional[str] = None, name_filter: Optional[str] = None) -> List[Dict]:
         """

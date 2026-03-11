@@ -61,10 +61,10 @@ commands:
     class: "vangard.commands.ListProductsMetadataSU.ListProductsMetadataSU"
     help: "Dump some basic product metadata for all products in the content management system to the specified output file."
     arguments:
-      - names: ["output_file"]
+      - names: ["-o", "--output_file"]
         dest: "output_file"
         type: "str"
-        required: true
+        required: false
         help: "Path to save output to"
         ui:
           widget: "file-picker"

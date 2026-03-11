@@ -9,23 +9,22 @@ function ListProductsMetadataSU() {
     sFunctionName = 'ListProductsMetadataSU';
 
     oScriptVars = init_script_utils (sFunctionName);
-    print ('++++++ ' + oScriptVars + '++++++')
     oOutputFile = oScriptVars['output_file']
 
     // Get the asset manager
     var oAssetMgr = App.getAssetMgr();
     // If the manager was not found
     if( !oAssetMgr ){
-	// We are done...
-	return;
+	    // We are done...
+	    return;
     }
     
     // Get the top level asset container for products
     var oProductsTop = oAssetMgr.getProducts();
     // If we do not have the products container
     if( !oProductsTop ){
-	// We are done...
-	return;
+        // We are done...
+        return;
     }
     
     // Declare working variables
@@ -33,8 +32,7 @@ function ListProductsMetadataSU() {
     var nProducts;
     var lOutputBucket=[]
 
-    var oFile = DzFile(oOutputFile);
-    oFile.open(DzFile.ReadWrite);
+ 
 
     // Get the number of intermediate containers; alpha-numeric sorting
     var nIntermediates = oProductsTop.getNumChildContainers();
@@ -42,9 +40,7 @@ function ListProductsMetadataSU() {
     for( var i = 0; i < nIntermediates; i += 1 ){
         // Get the 'current' intermediate container
         oIntermediate = oProductsTop.getChildContainer( i );
-        // Print the container name
-        print( "+++++", oIntermediate.getContainerName(), "+++++" );
-        
+        // Print the container name        
         // Get the number of product containers within the intermediate
         nProducts = oIntermediate.getNumChildContainers();
         // Iterate over all product containers
@@ -67,10 +63,17 @@ function ListProductsMetadataSU() {
         }		
     }
 
-    oFile.write(JSON.stringify(lOutputBucket));    
-
-    oFile.close();
     
+    if (oOutputFile != null) {
+        var oFile = DzFile(oOutputFile);
+        oFile.open(DzFile.ReadWrite);
+        oFile.write(JSON.stringify(lOutputBucket));    
+        oFile.close();    
+    } else {
+        print(JSON.stringify(lOutputBucket));
+    }
+    
+
 
     close_script_utils();
 }

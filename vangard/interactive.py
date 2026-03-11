@@ -2,13 +2,14 @@
 import shlex
 import argparse
 import atexit
+import sys
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import WordCompleter
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.formatted_text import HTML
 from prompt_toolkit.styles import Style
 
-from core.framework import load_config, build_parser, run_command
+from core.framework import load_config, build_parser, run_command, apply_startup_flags
 from vangard.interactive_completer import create_smart_completer
 from vangard.scene_cache import get_scene_cache_manager
 
@@ -78,6 +79,8 @@ def handle_special_command(command: str, scene_cache, cache_enabled: bool):
 
 def main():
     """The main entry point for the interactive shell."""
+    apply_startup_flags(sys.argv[1:])
+
     print("=" * 60)
     print("🚀 Vangard Interactive Shell")
     print("=" * 60)

@@ -1,7 +1,7 @@
 # cli.py
 import sys
 import argparse
-from core.framework import load_config, build_parser, run_command
+from core.framework import load_config, build_parser, run_command, apply_startup_flags
 
 def main(argv=None):
     """The main entry point for the standard command-line application."""
@@ -13,6 +13,8 @@ def main(argv=None):
 
     if argv and argv[0] == 'cli':
         argv = argv[1:]
+
+    argv = apply_startup_flags(argv)
 
     config = load_config()
     parser = build_parser(config)

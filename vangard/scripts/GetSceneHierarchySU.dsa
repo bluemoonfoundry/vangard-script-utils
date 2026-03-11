@@ -1,0 +1,43 @@
+// GetSceneHierarchySU.dsa - Query scene node hierarchy and return JSON
+// Used by the scene cache to populate autocomplete data.
+
+function getNodeType(node) {
+    if (!node) return "unknown";
+    var className = node.className();
+
+    // "DzCamera" is the base class; actual nodes are DzPerspectiveCamera,
+    // DzOrthographicCamera, etc. — check for "Camera" as a substring.
+    if (className.indexOf("Camera") >= 0) return "camera";
+
+    if (className.indexOf("DzLight") >= 0) return "light";
+
+    if (className.indexOf("DzBone") >= 0) return null;
+
+    if (className.indexOf("DzSkeleton") >= 0 || className.indexOf("DzFigure") >= 0) {
+        // Conforming figures (clothing, hair) have a follow target.
+        // Only root characters have no follow target.
+        if (node.getFollowTarget && node.getFollowTarget()) return "conformer";
+        return "figure";
+    }
+
+    if (node.getObject && node.getObject()) return "prop";
+    return "node";
+}
+
+var result = { "nodes": [] };
+
+var nodeList = Scene.getNodeList();
+for (var i = 0; i < nodeList.length; i++) {
+    var node = nodeList[i];
+    if (!node) continue;
+    var nodeType = getNodeType(node);
+    if (nodeType === null) continue;
+    result.nodes.push({
+        "label": node.getLabel(),
+        "name": node.name,
+        "type": nodeType,
+        "visible": node.isVisible()
+    });
+}
+
+print(JSON.stringify(result));
