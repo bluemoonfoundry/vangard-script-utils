@@ -86,17 +86,19 @@ function close_log() {
 /**
  * Initializes script utilities. This includes:
  * - Setting the global log source name (`s_logSourceName`).
- * - Initializing the log file (hardcoded to 'C:/Temp/razor.log', append mode).
  * - Updating modifier key states.
- * - Parsing script arguments (expected to be a JSON string in `App.scriptArgs[0]`) and logging them.
+ * - Parsing script arguments (expected to be a JSON string in `App.scriptArgs[0]`
+ *   in subprocess mode, or via `getArguments()` in server mode).
+ * - Optionally opening a log file if the parsed args contain a `_log_file` key.
+ *   This is the only supported way to enable file logging; there is no hardcoded
+ *   default path.
+ *
  * @param {string} log_source_id - The identifier to use as the source for log entries.
  * @returns {object | null} The parsed script arguments object, or `null` if parsing fails or no arguments.
  */
 function init_script_utils(log_source_id) {
 
     s_logSourceName = log_source_id;
-
-    init_log('C:/Temp/razor.log', false);
 
     // If the "Action" global transient is defined, and its the correct type
     if( typeof( Action ) != "undefined" && Action.inherits( "DzScriptAction" ) ){
@@ -112,9 +114,16 @@ function init_script_utils(log_source_id) {
     args = getArguments()[0];
     if (args == undefined) {
         args = App.scriptArgs[0];
-	rv   = JSON.parse(args);
+        rv   = JSON.parse(args);
     } else {
-	rv = args;
+        rv = args;
+    }
+
+    // Optional file logging: only enabled when the caller passes `_log_file`
+    // in the script arguments (e.g. via the DAZ_LOG_FILE environment variable
+    // on the Python side).  No hardcoded default path is used.
+    if (rv != null && rv['_log_file'] != undefined) {
+        init_log(rv['_log_file'], false);
     }
 
     return rv;
@@ -129,18 +138,23 @@ function close_script_utils() {
 }
 
 /**
- * Logs an event to the initialized log file.
- * The event is logged as a JSON string containing source, timestamp, event type, name, and additional info.
+ * Logs an event by printing a JSON-encoded log line to stdout and, if a log
+ * file is open, writing it there as well.
+ *
+ * In DAZ Script Server mode the script's stdout is captured by the server and
+ * returned to the Python caller as part of the HTTP response, so every call to
+ * this function produces a structured result that the caller can parse.
+ *
+ * In subprocess mode stdout is not piped back to Python, but if a log file was
+ * configured via the `_log_file` script argument (or an explicit `init_log`
+ * call) the entry is also written there.
+ *
  * @param {string} event_type - The type of the event (e.g., "INFO", "ERROR").
  * @param {string} event_name - A name or category for the event.
- * @param {object} [event_info=null] - An optional object containing additional key-value pairs to include in the log entry.
+ * @param {object} [event_info=null] - An optional object with additional key-value pairs to include.
  * @returns {void}
  */
 function log_event(event_type, event_name, event_info) {
-    if (log_file == null || !log_file.isOpen()) {
-        return;
-    }
-
     var base_message = {
         'source': s_logSourceName,
         'dtg': Date.now(),
@@ -157,7 +171,15 @@ function log_event(event_type, event_name, event_info) {
         }
     }
 
-    log_file.writeLine(JSON.stringify(base_message));
+    var json_line = JSON.stringify(base_message);
+
+    // Always emit to stdout so server mode captures it as a return value.
+    print(json_line);
+
+    // Also write to the log file if one was opened (subprocess / explicit use).
+    if (log_file != null && log_file.isOpen()) {
+        log_file.writeLine(json_line);
+    }
 }
 
 /**

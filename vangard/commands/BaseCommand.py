@@ -102,7 +102,6 @@ class BaseCommand(ABC):
                 "scriptFile": script_path,
                 "args": mark_args
             }
-            
 
             print(f"Sending script to DAZ Script Server: {url}")
             print(f"  payload: {json.dumps(payload, indent=2)}")
@@ -117,19 +116,25 @@ class BaseCommand(ABC):
             timeout = 30
             with urllib.request.urlopen(req, timeout=timeout) as response:
                 result = response.read().decode("utf-8")
-                print(f"DAZ Script Server response: {result}")
+                BaseCommand._print_script_output(result)
 
         else:
-            print(os.environ['DAZ_ROOT'])
-
             daz_root = os.getenv("DAZ_ROOT")
             daz_args = os.getenv("DAZ_ARGS", "")
 
             # Build command as a list for cross-platform compatibility
             command_list = [daz_root]
 
+            # Inject _log_file if DAZ_LOG_FILE env var is set, giving subprocess
+            # mode a configurable (non-hardcoded) file for diagnostic output.
+            effective_vars = dict(script_vars) if script_vars is not None else {}
+            daz_log_file = os.getenv("DAZ_LOG_FILE")
+            if daz_log_file:
+                effective_vars["_log_file"] = daz_log_file
+                print(f"Script log output will be written to: {daz_log_file}")
+
             # Add script arguments
-            mark_args = json.dumps(script_vars) if script_vars is not None else ""
+            mark_args = json.dumps(effective_vars) if effective_vars else ""
             if mark_args:
                 command_list.extend(["-scriptArg", mark_args])
 
@@ -151,6 +156,34 @@ class BaseCommand(ABC):
 
             subprocess.Popen(command_list, shell=False)
         
+
+    @staticmethod
+    def _print_script_output(raw: str) -> None:
+        """
+        Parses and displays output returned by the DAZ Script Server.
+
+        Scripts emit structured JSON log lines via print() (one per line).
+        Each line is attempted as JSON; if it parses as a log entry (has an
+        'event_type' key) it is displayed in a readable format.  Lines that
+        are not valid JSON are printed as-is.
+        """
+        for line in raw.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+                if "event_type" in entry:
+                    level  = entry.get("event_type", "INFO")
+                    source = entry.get("source", "")
+                    msg    = entry.get("message", "")
+                    status = entry.get("status", "")
+                    detail = f" [{status}]" if status else ""
+                    print(f"[{level}] {source}{detail}: {msg}" if msg else f"[{level}] {json.dumps(entry)}")
+                else:
+                    print(line)
+            except (json.JSONDecodeError, ValueError):
+                print(line)
 
     @staticmethod
     def to_dict(args: argparse.Namespace, exclude: Optional[Set[str]] = None) -> Dict[str, Any]:
