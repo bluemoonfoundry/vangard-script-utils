@@ -1,0 +1,1723 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vangard Command Reference</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── Dark theme (default) ─────────────────────────────────────── */
+    :root, html[data-theme="dark"] {
+      --bg:           #0f1117;
+      --surface:      #1a1d27;
+      --surface2:     #222534;
+      --surface3:     #2b2f42;
+      --border:       #2e3348;
+      --border-light: #3a3f5c;
+      --text:         #e2e5f0;
+      --text-muted:   #6b7280;
+      --text-dim:     #9ca3af;
+      --accent:       #6366f1;
+      --accent-glow:  #6366f133;
+      --radius:       8px;
+      --radius-sm:    4px;
+      --font-mono:    "JetBrains Mono", "Fira Code", "Cascadia Code", ui-monospace, monospace;
+      --font-sans:    "Inter", system-ui, -apple-system, sans-serif;
+      --badge-opt-bg:    #1e293b;
+      --badge-opt-color: #64748b;
+      --badge-opt-border:#334155;
+      --toggle-bg:    #2b2f42;
+      --toggle-color: #9ca3af;
+      --toggle-border:#3a3f5c;
+      --toggle-hover: #3a3f5c;
+    }
+
+    /* ── Light theme ──────────────────────────────────────────────── */
+    html[data-theme="light"] {
+      --bg:           #f5f6fa;
+      --surface:      #ffffff;
+      --surface2:     #eef0f7;
+      --surface3:     #e4e7f2;
+      --border:       #d5d9ec;
+      --border-light: #c0c6e0;
+      --text:         #1a1d27;
+      --text-muted:   #6b7280;
+      --text-dim:     #4b5563;
+      --accent:       #4f46e5;
+      --accent-glow:  #4f46e514;
+      --badge-opt-bg:    #e2e8f0;
+      --badge-opt-color: #475569;
+      --badge-opt-border:#94a3b8;
+      --toggle-bg:    #ffffff;
+      --toggle-color: #4b5563;
+      --toggle-border:#d5d9ec;
+      --toggle-hover: #e4e7f2;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+      padding: 2rem 1.5rem 4rem;
+      transition: background .2s, color .2s;
+    }
+
+    /* ── Page header ──────────────────────────────────────────────── */
+    .page-header {
+      max-width: 1100px;
+      margin: 0 auto 2.5rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: start;
+      gap: 1rem;
+    }
+    .page-header-text h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .page-header-text h1 span {
+      color: var(--accent);
+    }
+    .page-subtitle {
+      margin-top: .35rem;
+      color: var(--text-dim);
+      font-size: .9rem;
+    }
+    .page-meta {
+      margin-top: .75rem;
+      display: flex;
+      gap: .75rem;
+      flex-wrap: wrap;
+      font-size: .8rem;
+      color: var(--text-muted);
+    }
+    .page-meta span { display: flex; align-items: center; gap: .3rem; }
+
+    /* ── Theme toggle button ──────────────────────────────────────── */
+    #theme-toggle {
+      margin-top: .25rem;
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      padding: .4rem .75rem;
+      background: var(--toggle-bg);
+      color: var(--toggle-color);
+      border: 1px solid var(--toggle-border);
+      border-radius: 6px;
+      font-family: var(--font-sans);
+      font-size: .8rem;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .15s, color .15s, border-color .15s;
+    }
+    #theme-toggle:hover {
+      background: var(--toggle-hover);
+      color: var(--text);
+    }
+    #theme-toggle .icon { font-size: 1rem; line-height: 1; }
+
+    /* ── Main table ───────────────────────────────────────────────── */
+    .wrap {
+      max-width: 1100px;
+      margin: 0 auto;
+      overflow-x: auto;
+    }
+    table.main-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    table.main-table thead th {
+      background: var(--surface3);
+      padding: .7rem 1rem;
+      text-align: left;
+      font-size: .75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      color: var(--text-dim);
+      border-bottom: 1px solid var(--border);
+    }
+    table.main-table thead th:first-child { width: 190px; }
+    .cmd-row:not(:last-child) td { border-bottom: 1px solid var(--border); }
+    .cmd-row:hover td { background: var(--surface2); }
+    .cmd-row td { padding: 1rem; vertical-align: top; }
+
+    /* ── Command name cell ────────────────────────────────────────── */
+    .cmd-name-cell { width: 190px; }
+    .cmd-name {
+      font-family: var(--font-mono);
+      font-size: .88rem;
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-glow);
+      padding: .2em .5em;
+      border-radius: var(--radius-sm);
+      white-space: nowrap;
+    }
+    .cmd-class {
+      margin-top: .4rem;
+      font-size: .72rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* ── Command description cell ─────────────────────────────────── */
+    .cmd-desc { color: var(--text); margin-bottom: .6rem; font-size: .88rem; }
+
+    /* ── Args details/summary ─────────────────────────────────────── */
+    .arg-details { margin-top: .4rem; }
+    .arg-summary {
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: .5rem;
+      font-size: .8rem;
+      color: var(--text-dim);
+      user-select: none;
+      padding: .25rem 0;
+      list-style: none;
+    }
+    .arg-summary::-webkit-details-marker { display: none; }
+    .arg-summary::before {
+      content: "▶";
+      font-size: .65rem;
+      transition: transform .15s;
+      color: var(--accent);
+    }
+    details[open] .arg-summary::before { transform: rotate(90deg); }
+    .arg-summary:hover { color: var(--text); }
+
+    /* ── Argument inner table ─────────────────────────────────────── */
+    .arg-table-wrap {
+      margin-top: .6rem;
+      overflow-x: auto;
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-sm);
+    }
+    table.arg-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .8rem;
+    }
+    table.arg-table thead th {
+      background: var(--surface3);
+      padding: .45rem .75rem;
+      text-align: left;
+      font-size: .7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+    table.arg-table tbody tr:not(:last-child) td {
+      border-bottom: 1px solid var(--border);
+    }
+    table.arg-table tbody tr:hover td { background: var(--surface3); }
+    table.arg-table td { padding: .5rem .75rem; vertical-align: top; }
+
+    .arg-name-cell { width: 220px; white-space: nowrap; }
+    .arg-primary {
+      font-family: var(--font-mono);
+      font-size: .82rem;
+      color: var(--text);
+    }
+    .alias {
+      font-family: var(--font-mono);
+      font-size: .75rem;
+      color: var(--text-muted);
+      margin-left: .25rem;
+    }
+    .arg-type-cell {
+      width: 130px;
+      font-family: var(--font-mono);
+      font-size: .78rem;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+    .arg-default {
+      display: block;
+      font-size: .72rem;
+      color: var(--text-muted);
+      margin-top: .2rem;
+    }
+    .arg-desc-cell { color: var(--text-dim); font-size: .8rem; }
+    .arg-ui-cell   { width: 260px; }
+
+    /* ── Badges ───────────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      font-size: .68rem;
+      font-weight: 600;
+      padding: .15em .45em;
+      border-radius: 3px;
+      letter-spacing: .04em;
+      white-space: nowrap;
+    }
+    .badge-required {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #f59e0b44;
+    }
+    .badge-optional {
+      background: var(--badge-opt-bg);
+      color: var(--badge-opt-color);
+      border: 1px solid var(--badge-opt-border);
+    }
+
+    /* ── UI hint stack ────────────────────────────────────────────── */
+    .hint-stack {
+      display: flex;
+      flex-direction: column;
+      gap: .3rem;
+    }
+    .hint-detail, .hint-placeholder, .hint-autocomplete {
+      font-size: .74rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+    .hint-placeholder { font-style: italic; font-family: var(--font-sans); color: var(--text-muted); }
+    .hint-autocomplete { color: #a78bfa; font-family: var(--font-sans); }
+
+    /* ── Misc ─────────────────────────────────────────────────────── */
+    code {
+      font-family: var(--font-mono);
+      font-size: .85em;
+      background: var(--surface3);
+      padding: .1em .3em;
+      border-radius: 3px;
+      color: var(--text);
+    }
+    .muted { color: var(--text-muted); font-size: .8rem; }
+
+    /* ── Legend ───────────────────────────────────────────────────── */
+    .legend {
+      max-width: 1100px;
+      margin: 1.75rem auto 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: .6rem 1.25rem;
+      font-size: .78rem;
+      color: var(--text-muted);
+    }
+    .legend-item { display: flex; align-items: center; gap: .4rem; }
+
+    @media (max-width: 700px) {
+      body { padding: 1rem .75rem 3rem; }
+      table.main-table thead th:first-child,
+      .cmd-name-cell { width: 130px; }
+    }
+  </style>
+</head>
+<body>
+
+<header class="page-header">
+  <div class="page-header-text">
+    <h1>Vangard <span>Command Reference</span></h1>
+    <p class="page-subtitle">Auto-generated from <code>config.yaml</code> · All CLI commands, arguments, and UI hints.</p>
+    <div class="page-meta">
+      <span>&#x1F4CB; 22 commands</span>
+      <span>&#x1F504; Run <code>npm run generate-docs</code> to regenerate</span>
+    </div>
+  </div>
+  <button id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark theme">
+    <span class="icon" id="theme-icon">☀️</span>
+    <span id="theme-label">Light</span>
+  </button>
+</header>
+
+<div class="wrap">
+  <table class="main-table">
+    <thead>
+      <tr>
+        <th>Command</th>
+        <th>Description &amp; Arguments</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">action</code>
+          <div class="cmd-class">ExecGenericActionSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Execute the specified action with optional settings as a series of key=value pairs separated by commas</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">1 required</span><span class="badge badge-optional">1 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">action_class</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Class name of the action to execute</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., DzIrayRender, DzFileIOAction</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-s</code>
+          <code class="alias">--settings</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Settings for the action as a series of key=value pairs separated by commas</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>key1=value1,key2=value2</em></span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">apply-pose</code>
+          <div class="cmd-class">ApplyGenericPoseSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Apply the given named posed as pose file to the currently selected node or specified node</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">1 required</span><span class="badge badge-optional">1 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">pose_file</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Absolute path to the pose file to be applied</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#ede9fe;color:#8b5cf6;border:1px solid #8b5cf633;">file-picker</span><span class="hint-detail">ext: <code>.duf</code> <code>.dsf</code> <code>.pz2</code></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-t</code>
+          <code class="alias">--target-node</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Label of the node to apply the pose to. If not specified, apply to the currently selected node.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>Target node name (optional)</em></span><span class="hint-autocomplete">&#x1F4AC; autocomplete: <code>scene-nodes</code> [<code>figure</code>]</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">batch-render</code>
+          <div class="cmd-class">BatchRenderSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Given a pattern of scene files, load each one and render it to the target location (default is studio-iray) with the given output file pattern</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-optional">13 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-s</code>
+          <code class="alias">--scene-files</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code><span class="arg-default">default: <code>_</code></span></td>
+        <td class="arg-desc-cell">Pattern of scene files to load, including glob support. See README for examples</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., /path/to/scenes/*.duf</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-o</code>
+          <code class="alias">--output-path</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Path to directory where output files are to be written. If not specified, use the location of the scene file.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#f5f3ff;color:#7c3aed;border:1px solid #7c3aed33;">folder-picker</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-t</code>
+          <code class="alias">--target</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code><span class="arg-default">default: <code>direct-file</code></span></td>
+        <td class="arg-desc-cell">Target of the render. Allowed values are local-to-file, local-to-window, or iray-server-bridge</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#fef3c7;color:#f59e0b;border:1px solid #f59e0b33;">select</span><span class="hint-detail">choices: <code>Direct to File (Local)</code>, <code>Local to File</code>, <code>Local to Window</code>, <code>iRay Server Bridge</code></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-r</code>
+          <code class="alias">--resolution</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Resolution to render, overriding the resolution of the scene file, in WxH format (e.g. 1920x1080)</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., 1920x1080, 3840x2160</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-c</code>
+          <code class="alias">--cameras</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Cameras to render for. Can be one of &#x27;all_visible&#x27;, &#x27;viewport&#x27;, or a pattern that maps to one or more visible cameras</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., all_visible, viewport, Camera*</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-j</code>
+          <code class="alias">--job-name-pattern</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Pattern to use for naming job names or render output files. In the pattern, %s refers to the scene name, %c the camera name, %f the frame number, and %r the render count</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., %s_%c_frame%f</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-f</code>
+          <code class="alias">--frames</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Frames to render. Comma-separated list of frames that can include ranges and range patterns. See README for full detail and example.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., 1,5,10-20</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">--iray-server</code>
+          
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code><span class="arg-default">default: <code>127.0.0.1</code></span></td>
+        <td class="arg-desc-cell">For target iray-server the IP address or hostname of the iRay server/master to use.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>IP address or hostname</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">--iray-protocol</code>
+          
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code><span class="arg-default">default: <code>http</code></span></td>
+        <td class="arg-desc-cell">Sets the http protocol to use. Allowed values are http or https.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#fef3c7;color:#f59e0b;border:1px solid #f59e0b33;">select</span><span class="hint-detail">choices: <code>http</code>, <code>https</code></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">--iray-port</code>
+          
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code><span class="arg-default">default: <code>9090</code></span></td>
+        <td class="arg-desc-cell">For target iray-server the TCP port of the iRay server/master.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>Port number</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">--iray-user</code>
+          
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">For target iray-server the username to connect to the iRay server/master. Must be specified here or in config file specified by --iray-config-file</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>Username</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">--iray-password</code>
+          
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">For target iray-server the password to connect to the iRay server/master. Must be specified here or in config file specified by --iray-config-file</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>Password</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">--iray-config-file</code>
+          
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">For target iray-server the configuration options file to use for iRay server/master configuration. Values in this file can be overridden by additional command line arguments</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#ede9fe;color:#8b5cf6;border:1px solid #8b5cf633;">file-picker</span><span class="hint-detail">ext: <code>.json</code> <code>.yaml</code> <code>.yml</code></span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">copy-camera</code>
+          <div class="cmd-class">CopyNamedCameraToCurrentCameraSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Copy the specified camera (by label) to the specified target camera, or the current viewport camera if target not specified</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-optional">2 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-s</code>
+          <code class="alias">--source-camera</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Camera to copy from</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>Source camera name</em></span><span class="hint-autocomplete">&#x1F4AC; autocomplete: <code>scene-nodes</code> [<code>camera</code>]</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-t</code>
+          <code class="alias">--target-camera</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Camera to copy to (optional)</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>Target camera name (optional)</em></span><span class="hint-autocomplete">&#x1F4AC; autocomplete: <code>scene-nodes</code> [<code>camera</code>]</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">create-cam</code>
+          <div class="cmd-class">CreateBasicCameraSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Create a perspective camera with given name and camera type as parameters to generate the name of the camera along with the selected node label.</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">2 required</span><span class="badge badge-optional">1 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">cam_name</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Name of the camera</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., MainCamera, CloseUp</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">cam_class</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Class (type) of camera</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#fef3c7;color:#f59e0b;border:1px solid #f59e0b33;">select</span><span class="hint-detail">choices: <code>Perspective Camera</code>, <code>Orthographic Camera</code></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-f</code>
+          <code class="alias">--focus</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>flag</code><span class="arg-default">default: <code>False</code></span></td>
+        <td class="arg-desc-cell">If true, turn DOF on the new camera</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#d1fae5;color:#10b981;border:1px solid #10b98133;">checkbox</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">create-group</code>
+          <div class="cmd-class">CreateGroupNodeSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Group the selected nodes in the scene to the name specified.</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">1 required</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">group_name</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Name of the new group.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., Furniture, Props, Background</em></span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">drop-object</code>
+          <div class="cmd-class">DropObjectSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Drop one object on top of another, respecting bounding box boundaries.</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">2 required</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">source_node</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Label of the object to be dropped</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>Object to drop</em></span><span class="hint-autocomplete">&#x1F4AC; autocomplete: <code>scene-nodes</code> [<code>prop</code>, <code>figure</code>]</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">target_node</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Label of the object to be dropped onto</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>Target surface/object</em></span><span class="hint-autocomplete">&#x1F4AC; autocomplete: <code>scene-nodes</code> [<code>prop</code>, <code>figure</code>]</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">face-render-lora</code>
+          <div class="cmd-class">FaceRenderLoraSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Render a series of orbital camera angles around a figure&#x27;s face for LoRA training image generation</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-optional">8 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-o</code>
+          <code class="alias">--output-dir</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code><span class="arg-default">default: <code>y:/ai/charflow/output/face_lora/</code></span></td>
+        <td class="arg-desc-cell">Directory to write rendered images to.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#f5f3ff;color:#7c3aed;border:1px solid #7c3aed33;">folder-picker</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-p</code>
+          <code class="alias">--file-prefix</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code><span class="arg-default">default: <code>face</code></span></td>
+        <td class="arg-desc-cell">Filename prefix for output images. Angle label and extension are appended.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., face, portrait, headshot</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-W</code>
+          <code class="alias">--wid</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>int</code><span class="arg-default">default: <code>768</code></span></td>
+        <td class="arg-desc-cell">Render width in pixels.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#cffafe;color:#06b6d4;border:1px solid #06b6d433;">spinner</span><span class="hint-detail">min&nbsp;64 · max&nbsp;4096 · step&nbsp;64</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-H</code>
+          <code class="alias">--height</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>int</code><span class="arg-default">default: <code>768</code></span></td>
+        <td class="arg-desc-cell">Render height in pixels.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#cffafe;color:#06b6d4;border:1px solid #06b6d433;">spinner</span><span class="hint-detail">min&nbsp;64 · max&nbsp;4096 · step&nbsp;64</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-d</code>
+          <code class="alias">--camera-distance</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>int</code><span class="arg-default">default: <code>80</code></span></td>
+        <td class="arg-desc-cell">Camera distance from the face center in DAZ scene units (cm).</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #ef444433;">slider</span><span class="hint-detail">min&nbsp;30 · max&nbsp;200 · step&nbsp;5</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-y</code>
+          <code class="alias">--face-y-offset</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>int</code><span class="arg-default">default: <code>5</code></span></td>
+        <td class="arg-desc-cell">Vertical offset from the head bone origin toward eye/nose level.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #ef444433;">slider</span><span class="hint-detail">min&nbsp;-20 · max&nbsp;20 · step&nbsp;1</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-n</code>
+          <code class="alias">--node-label</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Label of the figure node to target. If not specified, the first skeleton in the scene is used.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>Figure node name (optional)</em></span><span class="hint-autocomplete">&#x1F4AC; autocomplete: <code>scene-nodes</code> [<code>figure</code>]</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-t</code>
+          <code class="alias">--test-mode</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>flag</code><span class="arg-default">default: <code>False</code></span></td>
+        <td class="arg-desc-cell">If set, show a message box at each angle instead of rendering.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#d1fae5;color:#10b981;border:1px solid #10b98133;">checkbox</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">help</code>
+          <div class="cmd-class">HelpCommand</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Displays help information for commands.</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-optional">1 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">command_name</code>
+          
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str&nbsp;<code>nargs=?</code></code></td>
+        <td class="arg-desc-cell">The specific command to get help for.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., load-scene, batch-render</em></span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">inc-scene</code>
+          <div class="cmd-class">SceneRollerSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Save the current scene file incrementing the file name with a numerical, incrementing, suffix.</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-optional">2 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-n</code>
+          <code class="alias">--number</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>int</code></td>
+        <td class="arg-desc-cell">If specified, replace the numeric suffix at the end of the scene file name with the given number (or add it if one doesn&#x27;t exist).</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#cffafe;color:#06b6d4;border:1px solid #06b6d433;">spinner</span><span class="hint-detail">min&nbsp;0 · max&nbsp;9999 · step&nbsp;1</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-i</code>
+          <code class="alias">--increment</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>int</code><span class="arg-default">default: <code>1</code></span></td>
+        <td class="arg-desc-cell">If specified, increment the scene file suffix by the given amount (default = 1).</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#cffafe;color:#06b6d4;border:1px solid #06b6d433;">spinner</span><span class="hint-detail">min&nbsp;1 · max&nbsp;100 · step&nbsp;1</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">listproducts</code>
+          <div class="cmd-class">ListProductsMetadataSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Dump some basic product metadata for all products in the content management system to the specified output file.</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-optional">1 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-o</code>
+          <code class="alias">--output_file</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Path to save output to</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#ede9fe;color:#8b5cf6;border:1px solid #8b5cf633;">file-picker</span><span class="hint-detail">ext: <code>.json</code> <code>.txt</code></span><span class="hint-detail">mode: <code>save</code></span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">load-scene</code>
+          <div class="cmd-class">LoadMergeSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Load the specified scene file, replacing the current scene if --merge is not used.</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">1 required</span><span class="badge badge-optional">1 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">scene_file</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Path to scene file to load</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#ede9fe;color:#8b5cf6;border:1px solid #8b5cf633;">file-picker</span><span class="hint-detail">ext: <code>.duf</code> <code>.dsx</code> <code>.dsf</code></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-m</code>
+          <code class="alias">--merge</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>flag</code><span class="arg-default">default: <code>False</code></span></td>
+        <td class="arg-desc-cell">If specified, merge the new scene into the current scene instead of replacing.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#d1fae5;color:#10b981;border:1px solid #10b98133;">checkbox</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">lora-trainer-prep</code>
+          <div class="cmd-class">SingleSceneRendererSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Render a matrixed series of images suitable for LORA training.</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">2 required</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">scene_files</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">A glob pattern that identifies the scene files to load. Each scene file should include a single model which has the hair and clothing applied</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., /path/to/scenes/*.duf</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">lora_trainer_config</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Path to config file defining the render matrix of shots x poses x expressions</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#ede9fe;color:#8b5cf6;border:1px solid #8b5cf633;">file-picker</span><span class="hint-detail">ext: <code>.json</code> <code>.yaml</code> <code>.yml</code></span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">product-list</code>
+          <div class="cmd-class">ListSceneProductsSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">List the product information for objects in the current scene</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-optional">3 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-t</code>
+          <code class="alias">--target-file</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code><span class="arg-default">default: <code>C:/Temp/products.json</code></span></td>
+        <td class="arg-desc-cell">File to write output information to</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#ede9fe;color:#8b5cf6;border:1px solid #8b5cf633;">file-picker</span><span class="hint-detail">ext: <code>.json</code></span><span class="hint-detail">mode: <code>save</code></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-n</code>
+          <code class="alias">--node-context</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>flag</code><span class="arg-default">default: <code>False</code></span></td>
+        <td class="arg-desc-cell">If specified, present the output in the context of nodes. Otherwise the default is to present output in the context of products.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#d1fae5;color:#10b981;border:1px solid #10b98133;">checkbox</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-s</code>
+          <code class="alias">--selected-only</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>flag</code><span class="arg-default">default: <code>False</code></span></td>
+        <td class="arg-desc-cell">Only identify products for the currently selected node.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#d1fae5;color:#10b981;border:1px solid #10b98133;">checkbox</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">rotate-random</code>
+          <div class="cmd-class">CharacterRotateAndRenderSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Rotate and render the selected character.</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">1 required</span><span class="badge badge-optional">1 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">object_name</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Label of the object to rotate prior to rendering</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., Genesis9, Camera, Chair</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">lower</code>
+          
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>int</code><span class="arg-default">default: <code>0</code></span></td>
+        <td class="arg-desc-cell">Starting rotation (in degrees)</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #ef444433;">slider</span><span class="hint-detail">min&nbsp;0 · max&nbsp;360 · step&nbsp;15</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">rotate-render</code>
+          <div class="cmd-class">CharacterRotateAndRenderSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Rotate and render the selected character.</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">1 required</span><span class="badge badge-optional">5 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">object_name</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Label of the object to rotate prior to rendering</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., Genesis9, Camera, Chair</em></span><span class="hint-autocomplete">&#x1F4AC; autocomplete: <code>scene-nodes</code> [<code>figure</code>, <code>prop</code>, <code>camera</code>]</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">lower</code>
+          
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>int</code><span class="arg-default">default: <code>0</code></span></td>
+        <td class="arg-desc-cell">Starting rotation (in degrees)</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #ef444433;">slider</span><span class="hint-detail">min&nbsp;0 · max&nbsp;360 · step&nbsp;15</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">upper</code>
+          
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>int</code><span class="arg-default">default: <code>180</code></span></td>
+        <td class="arg-desc-cell">Ending rotation (in degrees). rotation-start must be smaller than rotation-end</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #ef444433;">slider</span><span class="hint-detail">min&nbsp;0 · max&nbsp;360 · step&nbsp;15</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">slices</code>
+          
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>int</code></td>
+        <td class="arg-desc-cell">How many rotations between start and end to rotate. If set to zero, only render, do not rotate.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#cffafe;color:#06b6d4;border:1px solid #06b6d433;">spinner</span><span class="hint-detail">min&nbsp;0 · max&nbsp;72 · step&nbsp;1</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-o</code>
+          <code class="alias">--output-file</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Absolute path to directory to render images in. Default is to generate one from the scene file name.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#f5f3ff;color:#7c3aed;border:1px solid #7c3aed33;">folder-picker</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-s</code>
+          <code class="alias">--skip-render</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>flag</code><span class="arg-default">default: <code>False</code></span></td>
+        <td class="arg-desc-cell">Flag whether to render or the rotated character or not. Setting this flag skips the rendering step.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#d1fae5;color:#10b981;border:1px solid #10b98133;">checkbox</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">save-content-item</code>
+          <div class="cmd-class">SaveSelectedContentSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Save the selected items in the content library to the specified target location</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">1 required</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">target_dir</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Location to save content item to</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#f5f3ff;color:#7c3aed;border:1px solid #7c3aed33;">folder-picker</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">save-subset</code>
+          <div class="cmd-class">SaveSceneSubsetSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Save the selected items to a scene subset file</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">1 required</span><span class="badge badge-optional">2 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">subset_file</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Location to save content item to</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#ede9fe;color:#8b5cf6;border:1px solid #8b5cf633;">file-picker</span><span class="hint-detail">ext: <code>.duf</code></span><span class="hint-detail">mode: <code>save</code></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-d</code>
+          <code class="alias">--directory</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Directory to store the subset file in</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#f5f3ff;color:#7c3aed;border:1px solid #7c3aed33;">folder-picker</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-c</code>
+          <code class="alias">--category</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Category to associate subset with</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>e.g., Props, Characters, Lights</em></span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">save-viewport</code>
+          <div class="cmd-class">SaveViewportSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Capture and save the active viewport to image files for a range of frames</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">1 required</span><span class="badge badge-optional">4 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-f</code>
+          <code class="alias">--save-file</code>
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Output file path root (without extension). Frame number and extension will be appended.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#ede9fe;color:#8b5cf6;border:1px solid #8b5cf633;">file-picker</span><span class="hint-detail">mode: <code>save</code></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-c</code>
+          <code class="alias">--view-camera</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Name of the camera to set in the viewport before capturing. If not specified, uses the current viewport camera.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>Camera name (optional)</em></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-e</code>
+          <code class="alias">--image-format</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code><span class="arg-default">default: <code>png</code></span></td>
+        <td class="arg-desc-cell">Image file format/extension (e.g. png, jpg). Default is png.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#fef3c7;color:#f59e0b;border:1px solid #f59e0b33;">select</span><span class="hint-detail">choices: <code>png</code>, <code>jpg</code>, <code>tif</code>, <code>bmp</code></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-s</code>
+          <code class="alias">--frame-start</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>int</code></td>
+        <td class="arg-desc-cell">First frame to capture. Defaults to the current scene frame.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#cffafe;color:#06b6d4;border:1px solid #06b6d433;">spinner</span><span class="hint-detail">min&nbsp;0 · max&nbsp;10000 · step&nbsp;1</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-n</code>
+          <code class="alias">--frame-end</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>int</code></td>
+        <td class="arg-desc-cell">End frame (exclusive) for capture range. Defaults to frame_start + 1 (single frame).</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#cffafe;color:#06b6d4;border:1px solid #06b6d433;">spinner</span><span class="hint-detail">min&nbsp;0 · max&nbsp;10000 · step&nbsp;1</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">saveas</code>
+          <div class="cmd-class">CopyCurrentSceneFileSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Make a copy of the current scene file to the specified location, simulating a Save As... function</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">1 required</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">save_file</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Path to save a copy of the current scene file to</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#ede9fe;color:#8b5cf6;border:1px solid #8b5cf633;">file-picker</span><span class="hint-detail">ext: <code>.duf</code></span><span class="hint-detail">mode: <code>save</code></span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">scene-render</code>
+          <div class="cmd-class">SingleSceneRendererSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Direct render the current scene, or a new scene file if specified, to the given output file.</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-optional">2 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-s</code>
+          <code class="alias">--scene-file</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Name of the scene file to load.</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#ede9fe;color:#8b5cf6;border:1px solid #8b5cf633;">file-picker</span><span class="hint-detail">ext: <code>.duf</code> <code>.dsx</code></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-o</code>
+          <code class="alias">--output-file</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Path to output file to save to</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#ede9fe;color:#8b5cf6;border:1px solid #8b5cf633;">file-picker</span><span class="hint-detail">ext: <code>.png</code> <code>.jpg</code> <code>.tif</code> <code>.exr</code></span><span class="hint-detail">mode: <code>save</code></span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+      <tr class="cmd-row">
+        <td class="cmd-name-cell">
+          <code class="cmd-name">transform-copy</code>
+          <div class="cmd-class">CopyTransformObjectSU</div>
+        </td>
+        <td class="cmd-desc-cell">
+          <p class="cmd-desc">Perform translate, rotate, and/or scale operations on target node to match the transforms on the target node.</p>
+          
+          <details class="arg-details">
+            <summary class="arg-summary">
+              Arguments&nbsp;&nbsp;<span class="badge badge-required">2 required</span><span class="badge badge-optional">4 optional</span>
+            </summary>
+            <div class="arg-table-wrap">
+              <table class="arg-table">
+                <thead>
+                  <tr>
+                    <th>Name / Flags</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                    <th>UI Hint</th>
+                  </tr>
+                </thead>
+                <tbody>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">source_node</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Node to translate from</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>Source node name</em></span><span class="hint-autocomplete">&#x1F4AC; autocomplete: <code>scene-nodes</code></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">target_node</code>
+          
+          <span class="badge badge-required">required</span>
+        </td>
+        <td class="arg-type-cell"><code>str</code></td>
+        <td class="arg-desc-cell">Node to translate to</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span><span class="hint-placeholder">e.g.&nbsp;<em>Target node name</em></span><span class="hint-autocomplete">&#x1F4AC; autocomplete: <code>scene-nodes</code></span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-r</code>
+          <code class="alias">--rotate</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>flag</code></td>
+        <td class="arg-desc-cell">Apply the rotation transform</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#d1fae5;color:#10b981;border:1px solid #10b98133;">checkbox</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-t</code>
+          <code class="alias">--translate</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>flag</code></td>
+        <td class="arg-desc-cell">Apply the translation transform</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#d1fae5;color:#10b981;border:1px solid #10b98133;">checkbox</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-s</code>
+          <code class="alias">--scale</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>flag</code></td>
+        <td class="arg-desc-cell">Apply the scaling transform</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#d1fae5;color:#10b981;border:1px solid #10b98133;">checkbox</span></div></td>
+      </tr>
+      <tr>
+        <td class="arg-name-cell">
+          <code class="arg-primary">-a</code>
+          <code class="alias">--all</code>
+          <span class="badge badge-optional">optional</span>
+        </td>
+        <td class="arg-type-cell"><code>flag</code></td>
+        <td class="arg-desc-cell">Apply rotation, translation, and scaling trasforms</td>
+        <td class="arg-ui-cell"><div class="hint-stack"><span class="badge" style="background:#d1fae5;color:#10b981;border:1px solid #10b98133;">checkbox</span></div></td>
+      </tr>
+                </tbody>
+              </table>
+            </div>
+          </details>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><span class="badge badge-required">required</span> Required argument</div>
+  <div class="legend-item"><span class="badge badge-optional">optional</span> Optional argument</div>
+  <div class="legend-item"><span class="badge" style="background:#dbeafe;color:#3b82f6;border:1px solid #3b82f633;">text</span> Widget type</div><div class="legend-item"><span class="badge" style="background:#ede9fe;color:#8b5cf6;border:1px solid #8b5cf633;">file-picker</span> Widget type</div><div class="legend-item"><span class="badge" style="background:#f5f3ff;color:#7c3aed;border:1px solid #7c3aed33;">folder-picker</span> Widget type</div><div class="legend-item"><span class="badge" style="background:#d1fae5;color:#10b981;border:1px solid #10b98133;">checkbox</span> Widget type</div><div class="legend-item"><span class="badge" style="background:#fef3c7;color:#f59e0b;border:1px solid #f59e0b33;">select</span> Widget type</div><div class="legend-item"><span class="badge" style="background:#fee2e2;color:#ef4444;border:1px solid #ef444433;">slider</span> Widget type</div><div class="legend-item"><span class="badge" style="background:#cffafe;color:#06b6d4;border:1px solid #06b6d433;">spinner</span> Widget type</div>
+</div>
+
+<script>
+  (function () {
+    var saved = localStorage.getItem('vangard-theme') || 'dark';
+    applyTheme(saved);
+  })();
+
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    var icon  = document.getElementById('theme-icon');
+    var label = document.getElementById('theme-label');
+    if (icon)  icon.textContent  = theme === 'dark' ? '☀️' : '🌙';
+    if (label) label.textContent = theme === 'dark' ? 'Light' : 'Dark';
+    localStorage.setItem('vangard-theme', theme);
+  }
+
+  function toggleTheme() {
+    var current = document.documentElement.getAttribute('data-theme') || 'dark';
+    applyTheme(current === 'dark' ? 'light' : 'dark');
+  }
+</script>
+
+</body>
+</html>

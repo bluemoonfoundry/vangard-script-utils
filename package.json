@@ -1,0 +1,8 @@
+{
+  "name": "vangard-script-utils",
+  "version": "1.0.0",
+  "description": "Vangard CLI — DAZ Studio script utilities",
+  "scripts": {
+    "generate-docs": "python3 generate_command_summary.py"
+  }
+}
