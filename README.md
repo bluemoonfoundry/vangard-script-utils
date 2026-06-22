@@ -1,3 +1,9 @@
+> [!NOTE]  
+> This repo is no longer being actively developed and is here for historical purposes. Its features and functionality have largely been superceded by the DAZ Script Server project, located here: https://github.com/bluemoonfoundry/daz-script-server
+
+
+
+
 # Vangard Script Utils
 
 A powerful, configuration-driven command-line utility system that provides standardized automation scripts for DAZ Studio. This toolkit acts as a bridge between Python and DAZ Studio's scripting language (DSA), offering multiple interaction modes including CLI, interactive shell, REST API server, GUI, and a modern web interface (Pro mode).
